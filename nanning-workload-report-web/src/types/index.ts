@@ -218,6 +218,40 @@ export interface WorkReportItem {
   itemName?: string
 }
 
+// ==================== 汇总统计 ====================
+
+/** 车间汇总（按工区分组） */
+export interface WorkshopSummary {
+  areaId: number
+  areaName: string
+  workshopId: number
+  workshopName: string
+  reportCount: number
+  employeeCount: number
+  totalMinutes: number
+  totalPoints: number
+  constructionMinutes: number
+  cooperationMinutes: number
+  maintenanceMinutes: number
+  otherMinutes: number
+}
+
+/** 段级汇总（按车间分组，含工区明细） */
+export interface SectionSummary {
+  workshopId: number
+  workshopName: string
+  areaCount: number
+  reportCount: number
+  employeeCount: number
+  totalMinutes: number
+  totalPoints: number
+  constructionMinutes: number
+  cooperationMinutes: number
+  maintenanceMinutes: number
+  otherMinutes: number
+  areas: WorkshopSummary[]
+}
+
 // ==================== 审核记录 ====================
 
 /** 审核操作类型 */
