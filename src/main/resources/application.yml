@@ -1,0 +1,129 @@
+# ============================================================================
+# 南宁通信段劳动用工工时工分统计管理系统 - 应用配置
+# ============================================================================
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: nanning-workload-report-backend
+
+  # 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/nanning_workload?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 1234
+
+  # Redis 配置（Sa-Token 会话存储 + 缓存）
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  # Jackson 日期序列化配置
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+
+# ============================================================================
+# MyBatis Plus 配置
+# ============================================================================
+mybatis-plus:
+  # Mapper XML 文件位置
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体类包路径（别名）
+  type-aliases-package: com.cyp.nanningworkloadreportsystem.entity
+  configuration:
+    # 下划线转驼峰
+    map-underscore-to-camel-case: true
+    # SQL 日志输出（开发环境可用，生产环境关闭）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      # 主键自增策略
+      id-type: auto
+      # 逻辑删除字段
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# ============================================================================
+# Sa-Token 权限认证配置
+# 文档: https://sa-token.cc
+# ============================================================================
+sa-token:
+  # Token 名称（同时也是 Cookie 名称）
+  token-name: satoken
+  # Token 有效期（单位：秒），默认 7 天
+  timeout: 604800
+  # Token 最低活跃频率（-1 表示不限制，永不过期）
+  active-timeout: -1
+  # 是否允许同一账号多地同时登录（true=允许）
+  is-concurrent: true
+  # 多人共享同一账号时是否共用一个 Token（true=共享）
+  is-share: true
+  # Token 风格（random-64 = 64位随机字符串）
+  token-style: random-64
+  # 是否输出操作日志
+  is-log: true
+  # 是否从 Cookie 中读取 Token
+  is-read-cookie: false
+  # 是否从请求体里读取 Token
+  is-read-body: false
+  # 是否从请求头中读取 Token
+  is-read-header: true
+
+# ============================================================================
+# Knife4j / SpringDoc API 文档配置
+# ============================================================================
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+    enable-swagger-models: true
+    enable-document-manage: true
+    swagger-model-name: 实体类列表
+    enable-version: false
+    enable-reload-cache-parameter: false
+    enable-after-script: false
+    enable-filter-multipart-api-method-type: POST
+    enable-filter-multipart-apis: false
+    enable-request-cache: true
+    enable-host: false
+    enable-host-text: localhost:8080
+    enable-home-custom: false
+    enable-search: true
+    enable-footer: false
+    enable-footer-custom: true
+    footer-custom-content: 南宁通信段劳动用工工时工分统计管理系统 API 文档
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: com.cyp.nanningworkloadreportsystem.controller
+
+# ============================================================================
+# 系统自定义配置
+# ============================================================================
+app:
+  # 默认密码（新创建账号的初始密码）
+  default-password: "123456"
+  # 是否开启首次登录强制修改密码
+  force-password-change: true

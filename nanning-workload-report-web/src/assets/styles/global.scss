@@ -1,0 +1,19 @@
+/* 全局样式变量和基础样式 */
+
+:root {
+  /* 主色调 - 沉稳专业的蓝色系 */
+  --el-color-primary: #2c5f8a;
+  --sidebar-bg: #1a3a52;
+  --sidebar-text: #c0cdd9;
+  --sidebar-active: #2c5f8a;
+  --header-bg: #ffffff;
+  --header-height: 56px;
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 64px;
+}
+
+body {
+  font-size: 14px;
+  color: #333;
+  background-color: #f0f2f5;
+}
