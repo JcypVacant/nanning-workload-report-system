@@ -19,15 +19,17 @@
             <el-cascader v-model="row.workItemId" :options="workItemTree" :props="{value:'id',label:'itemName',children:'children',checkStrictly:false,emitPath:false}" placeholder="选择项目" style="width:100%"/>
           </template>
         </el-table-column>
-        <el-table-column label="数值" width="140">
-          <template #default="{row}"><el-input-number v-model="row.numberValue":min="0":precision="1" style="width:120px"/></template>
+        <el-table-column label="工时(分钟)" width="150">
+          <template #default="{row}"><el-input-number v-model="row.numberValue" :min="0" :precision="1" style="width:130px" /></template>
         </el-table-column>
-        <el-table-column label="单位" width="80"><template #default="{row}">{{reportType==='HOURS'?'分钟':'分'}}</template></el-table-column>
+        <el-table-column label="工分" width="130">
+          <template #default="{row}"><el-input-number v-model="row.pointsValue" :min="0" :precision="1" style="width:110px" /></template>
+        </el-table-column>
         <el-table-column label="备注" width="180"><template #default="{row}"><el-input v-model="row.remark" placeholder="备注"/></template></el-table-column>
         <el-table-column label="操作" width="80"><template #default="{$index}"><el-button link type="danger" size="small" @click="items.splice($index,1)">删除</el-button></template></el-table-column>
       </el-table>
       <div style="margin-top:12px;text-align:right">
-        <span style="font-size:16px;font-weight:bold">合计：{{ totalSum }}{{ reportType==='HOURS'?' 分钟':' 分' }}</span>
+        <span style="font-size:16px;font-weight:bold">合计：{{ totalSumTime }} 分钟 / {{ totalSumPoints }} 工分</span>
       </div>
       <div style="margin-top:16px">
         <el-button @click="saveDraft" :loading="saving">保存草稿</el-button>
@@ -75,11 +77,12 @@ const periodId = ref<number|null>(null)
 const employeeId = ref<number|null>(null)
 const workDate = ref('')
 const reportType = ref('HOURS')
-const items = ref<{workItemId:number|null,numberValue:number|null,remark:string}[]>([{workItemId:null,numberValue:null,remark:''}])
+const items = ref<{workItemId:number|null,numberValue:number|null,pointsValue:number|null,remark:string}[]>([{workItemId:null,numberValue:null,pointsValue:null,remark:''}])
 const saving = ref(false)
 const editingReportId = ref<number|null>(null)
 
-const totalSum = computed(() => items.value.reduce((s,i)=>s+(i.numberValue||0),0))
+const totalSumTime = computed(() => items.value.reduce((s,i)=>s+(i.numberValue||0),0))
+const totalSumPoints = computed(() => items.value.reduce((s,i)=>s+(i.pointsValue||0),0))
 
 function statusTag(s:string) {
   const m:Record<string,string>={'草稿':'info','已提交':'warning','已退回':'danger','已审核':'success','已锁定':''}
@@ -101,14 +104,14 @@ async function loadReports(){
   reportList.value=res.records
 }
 
-function addItem(){items.value.push({workItemId:null,numberValue:null,remark:''})}
+function addItem(){items.value.push({workItemId:null,numberValue:null,pointsValue:null,remark:''})}
 
 async function saveDraft(){
   if(!validate())return
   saving.value=true
   try{
     const data={periodId:periodId.value!,employeeId:employeeId.value!,workDate:workDate.value,reportType:reportType.value,
-      items:items.value.filter(i=>i.workItemId).map(i=>({workItemId:i.workItemId!,numberValue:i.numberValue,remark:i.remark}))}
+      items:items.value.filter(i=>i.workItemId).map(i=>({workItemId:i.workItemId!,numberValue:i.numberValue,pointsValue:i.pointsValue,remark:i.remark}))}
     if(editingReportId.value){await reportApi.update(editingReportId.value,{items:data.items})}
     else await reportApi.create(data)
     ElMessage.success('保存草稿成功');resetForm();loadReports()
@@ -121,7 +124,7 @@ async function saveAndSubmit(){
   saving.value=true
   try{
     const data={periodId:periodId.value!,employeeId:employeeId.value!,workDate:workDate.value,reportType:reportType.value,
-      items:items.value.filter(i=>i.workItemId).map(i=>({workItemId:i.workItemId!,numberValue:i.numberValue,remark:i.remark}))}
+      items:items.value.filter(i=>i.workItemId).map(i=>({workItemId:i.workItemId!,numberValue:i.numberValue,pointsValue:i.pointsValue,remark:i.remark}))}
     let report:WorkReport
     if(editingReportId.value){report=await reportApi.update(editingReportId.value,{items:data.items})}
     else report=await reportApi.create(data)
@@ -139,8 +142,8 @@ function validate():boolean{
   return true
 }
 
-function resetForm(){items.value=[{workItemId:null,numberValue:null,remark:''}];editingReportId.value=null}
-function editReport(row:WorkReport){editingReportId.value=row.id;items.value=(row.items||[]).map(i=>({workItemId:i.workItemId,numberValue:i.numberValue,remark:i.remark||''}))}
+function resetForm(){items.value=[{workItemId:null,numberValue:null,pointsValue:null,remark:''}];editingReportId.value=null}
+function editReport(row:WorkReport){editingReportId.value=row.id;items.value=(row.items||[]).map(i=>({workItemId:i.workItemId,numberValue:i.numberValue,pointsValue:i.pointsValue,remark:i.remark||''}))}
 async function submitReport(row:WorkReport){await reportApi.submit(row.id);ElMessage.success('提交成功');loadReports()}
 async function deleteReport(row:WorkReport){
   try{await ElMessageBox.confirm('确定删除吗？','提示',{type:'warning'});await reportApi.remove(row.id);ElMessage.success('已删除');loadReports()}

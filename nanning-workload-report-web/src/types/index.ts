@@ -208,6 +208,7 @@ export interface WorkReportItem {
   reportId?: number
   workItemId: number
   numberValue?: number
+  pointsValue?: number
   textValue?: string
   unit?: string
   sortOrder: number
