@@ -9,6 +9,7 @@ import com.cyp.nanningworkloadreportsystem.entity.SysUser;
 import com.cyp.nanningworkloadreportsystem.entity.SysUserOrgScope;
 import com.cyp.nanningworkloadreportsystem.mapper.SysUserMapper;
 import com.cyp.nanningworkloadreportsystem.mapper.SysUserOrgScopeMapper;
+import com.cyp.nanningworkloadreportsystem.util.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +30,7 @@ public class SysUserService {
 
     private final SysUserMapper sysUserMapper;
     private final SysUserOrgScopeMapper sysUserOrgScopeMapper;
+    private final OperationLogService logService;
 
     /** 系统默认密码（从配置文件读取） */
     @Value("${app.default-password:123456}")
@@ -70,7 +72,13 @@ public class SysUserService {
         user.setLastLoginTime(LocalDateTime.now());
         sysUserMapper.updateById(user);
 
+        // 6. 记录登录日志（先填充UserContext，因为此时拦截器还未设置）
         log.info("用户 {} (ID={}) 登录成功", username, user.getId());
+        UserContext.setUserId(user.getId());
+        UserContext.setUsername(user.getUsername());
+        UserContext.setRealName(user.getRealName());
+        logService.record("用户认证", "LOGIN", String.valueOf(user.getId()),
+                "用户登录: " + username);
         return StpUtil.getTokenValue();
     }
 
@@ -131,6 +139,7 @@ public class SysUserService {
         sysUserMapper.updateById(user);
 
         log.info("用户 {} (ID={}) 修改密码成功", user.getUsername(), userId);
+        logService.record("个人中心", "UPDATE", String.valueOf(userId), "修改密码");
     }
 
     /**
@@ -199,6 +208,8 @@ public class SysUserService {
         saveUserOrgScope(user.getId(), roleCode, orgId);
 
         log.info("创建用户账号: username={}, role={}", user.getUsername(), roleCode);
+        logService.record("账号管理", "CREATE", String.valueOf(user.getId()),
+                "创建账号: " + user.getUsername() + "(" + roleCode + ")");
         return user;
     }
 
@@ -236,6 +247,8 @@ public class SysUserService {
                     new LambdaQueryWrapper<SysUserOrgScope>().eq(SysUserOrgScope::getUserId, user.getId()));
             saveUserOrgScope(user.getId(), roleCode, orgId);
         }
+        logService.record("账号管理", "UPDATE", String.valueOf(user.getId()),
+                "更新账号信息: " + (user.getRealName() != null ? user.getRealName() : ""));
     }
 
     /**
@@ -251,6 +264,7 @@ public class SysUserService {
         user.setFirstLogin(1);
         sysUserMapper.updateById(user);
         log.info("用户 {} (ID={}) 密码已重置", user.getUsername(), userId);
+        logService.record("账号管理", "UPDATE", String.valueOf(userId), "重置密码: " + user.getUsername());
     }
 
     /**
@@ -263,6 +277,8 @@ public class SysUserService {
         }
         user.setEnabled(user.getEnabled() == 1 ? 0 : 1);
         sysUserMapper.updateById(user);
+        logService.record("账号管理", "UPDATE", String.valueOf(userId),
+                (user.getEnabled() == 1 ? "启用" : "禁用") + "账号: " + user.getUsername());
     }
 
     /**

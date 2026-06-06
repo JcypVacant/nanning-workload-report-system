@@ -29,6 +29,7 @@ public class EmployeeService {
     private final EmployeeMapper employeeMapper;
     private final EmployeeTransferRecordMapper transferRecordMapper;
     private final OrgUnitMapper orgUnitMapper;
+    private final OperationLogService logService;
 
     /** 分页查询人员（手动分页：先COUNT再LIMIT） */
     public IPage<Employee> getPage(Integer pageNum, Integer pageSize, String keyword, Long workshopId, Long areaId, String status) {
@@ -105,6 +106,7 @@ public class EmployeeService {
         if (employee.getEnabled() == null) employee.setEnabled(1);
         employeeMapper.insert(employee);
         log.info("新增人员: {}", employee.getName());
+        logService.record("人员管理", "CREATE", String.valueOf(employee.getId()), "新增人员: " + employee.getName());
         return employee;
     }
 
@@ -113,6 +115,7 @@ public class EmployeeService {
     public void update(Employee employee) {
         employeeMapper.updateById(employee);
         log.info("更新人员: ID={}", employee.getId());
+        logService.record("人员管理", "UPDATE", String.valueOf(employee.getId()), "更新人员: " + employee.getName());
     }
 
     /** 停用人员 */
@@ -121,6 +124,8 @@ public class EmployeeService {
         if (emp != null) {
             emp.setEnabled(emp.getEnabled() == 1 ? 0 : 1);
             employeeMapper.updateById(emp);
+            logService.record("人员管理", "UPDATE", String.valueOf(id),
+                    (emp.getEnabled() == 1 ? "启用" : "停用") + "人员: " + emp.getName());
         }
     }
 
@@ -151,6 +156,8 @@ public class EmployeeService {
         employeeMapper.updateById(emp);
 
         log.info("人员调动: employeeId={}, {}->{}", employeeId, record.getBeforeAreaId(), newAreaId);
+        logService.record("人员管理", "TRANSFER", String.valueOf(employeeId),
+                "人员调动: " + emp.getName() + " -> 工区" + newAreaId);
     }
 
     /** 查询调动记录 */

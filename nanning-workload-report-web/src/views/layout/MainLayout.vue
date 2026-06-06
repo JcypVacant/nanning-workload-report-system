@@ -9,18 +9,19 @@
     <el-aside :width="sidebarWidth" class="layout-aside">
       <div class="logo-area">
         <el-icon :size="24" color="#fff"><Odometer /></el-icon>
-        <span v-show="!appStore.sidebarCollapsed" class="logo-text">工时工分系统</span>
+        <span v-show="!appStore.sidebarCollapsed" class="logo-text">南宁通信段工时工分系统</span>
       </div>
 
-      <el-menu
-        :default-active="activeMenu"
-        :collapse="appStore.sidebarCollapsed"
-        :collapse-transition="false"
-        background-color="#1a3a52"
-        text-color="#c0cdd9"
-        active-text-color="#ffffff"
-        router
-      >
+      <div class="menu-scroll-area">
+        <el-menu
+          :default-active="activeMenu"
+          :collapse="appStore.sidebarCollapsed"
+          :collapse-transition="false"
+          background-color="#1a3a52"
+          text-color="#c0cdd9"
+          active-text-color="#ffffff"
+          router
+        >
         <!-- 首页看板 -->
         <el-menu-item index="/dashboard">
           <el-icon><Odometer /></el-icon>
@@ -117,6 +118,7 @@
           <template #title>个人中心</template>
         </el-menu-item>
       </el-menu>
+      </div>
     </el-aside>
 
     <!-- 右侧内容区域 -->
@@ -219,6 +221,8 @@ function handleCommand(command: string) {
 }
 
 .layout-aside {
+  display: flex;
+  flex-direction: column;
   background-color: #1a3a52;
   overflow: hidden;
   transition: width 0.3s;
@@ -228,6 +232,7 @@ function handleCommand(command: string) {
     align-items: center;
     justify-content: center;
     height: 56px;
+    min-height: 56px;
     padding: 0 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 
@@ -242,6 +247,29 @@ function handleCommand(command: string) {
       font-weight: 600;
       color: #fff;
       white-space: nowrap;
+    }
+  }
+
+  .menu-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    /* 美化滚动条 */
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    /* el-menu 撑满高度，保持折叠动画正常 */
+    .el-menu {
+      border-right: none;
     }
   }
 }

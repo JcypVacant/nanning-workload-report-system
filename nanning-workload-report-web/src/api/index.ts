@@ -10,7 +10,7 @@ import router from '@/router'
  * 1. 基础 URL（从环境变量读取）
  * 2. 请求超时时间
  * 3. 请求拦截器（自动添加 Token）
- * 4. 响应拦截器（统一错误处理）
+ * 4. 响应拦截器（统一错误处理、blob 透传）
  */
 const service: AxiosInstance = axios.create({
   // API 基础路径
@@ -44,12 +44,18 @@ service.interceptors.request.use(
  * 响应拦截器
  * 统一处理 API 响应：
  * - 成功：提取 data 字段返回
+ * - blob/arraybuffer：直接透传（用于Excel导出等文件下载）
  * - 未登录(401)：跳转到登录页
  * - 权限不足(403)：提示用户
  * - 其他错误：显示错误消息
  */
 service.interceptors.response.use(
   (response: AxiosResponse<ApiResult>) => {
+    // 二进制响应（Excel导出等）直接透传，不解析 JSON
+    if (response.config.responseType === 'blob' || response.config.responseType === 'arraybuffer') {
+      return response.data as any
+    }
+
     const res = response.data
 
     // 如果响应码不是 200，说明业务逻辑有误

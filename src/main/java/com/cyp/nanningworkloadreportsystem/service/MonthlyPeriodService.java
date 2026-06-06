@@ -21,6 +21,7 @@ import java.time.LocalDate;
 public class MonthlyPeriodService {
 
     private final MonthlyPeriodMapper periodMapper;
+    private final OperationLogService logService;
 
     /** 分页查询 */
     public IPage<MonthlyPeriod> getPage(Integer pageNum, Integer pageSize) {
@@ -60,6 +61,7 @@ public class MonthlyPeriodService {
         period.setLocked(0);
         periodMapper.insert(period);
         log.info("创建月度期间: {}", period.getPeriodName());
+        logService.record("月度期间管理", "CREATE", String.valueOf(period.getId()), "创建期间: " + period.getPeriodName());
         return period;
     }
 
@@ -97,6 +99,8 @@ public class MonthlyPeriodService {
         if ("已锁定".equals(newStatus)) period.setLocked(1);
         periodMapper.updateById(period);
         log.info("月度期间 {} 状态变更: {} -> {}", period.getPeriodName(), currentStatus, newStatus);
+        logService.record("月度期间管理", "UPDATE", String.valueOf(id),
+                "状态变更: " + period.getPeriodName() + " " + currentStatus + " -> " + newStatus);
     }
 
     /** 锁定/解锁月份 */

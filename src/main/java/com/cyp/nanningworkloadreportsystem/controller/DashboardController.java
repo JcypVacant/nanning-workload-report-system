@@ -1,19 +1,22 @@
 package com.cyp.nanningworkloadreportsystem.controller;
 
 import com.cyp.nanningworkloadreportsystem.common.Result;
+import com.cyp.nanningworkloadreportsystem.service.StatisticsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
- * 仪表盘（首页看板）控制器
- * 返回当前月份的填报进度和汇总统计数据
- * 不同角色看到不同范围的数据
+ * 首页看板控制器
+ * 使用实时聚合统计数据（来自 StatisticsService），
+ * 数据范围根据当前登录用户角色自动过滤
  */
 @Tag(name = "首页看板", description = "首页统计卡片和图表数据")
 @RestController
@@ -21,49 +24,55 @@ import java.util.*;
 @RequiredArgsConstructor
 public class DashboardController {
 
-    /**
-     * 获取仪表盘数据
-     * GET /api/v1/dashboard
-     *
-     * 返回数据包括：
-     * - cards: 统计卡片数据（总工时、总工分、提交数、审核数）
-     * - workshopChart: 各车间/工区对比图表数据
-     * - projectChart: 用工项目占比图表数据
-     */
+    private final StatisticsService statisticsService;
+
     @Operation(summary = "获取仪表盘数据")
     @GetMapping("/dashboard")
-    public Result<Map<String, Object>> getDashboard() {
+    public Result<Map<String, Object>> getDashboard(
+            @RequestParam(required = false) Long periodId) {
         Map<String, Object> data = new HashMap<>();
 
-        // 统计卡片数据
+        // 状态统计
+        Map<String, Object> statusStats = statisticsService.getStatusStats(periodId);
+        long totalReports = statusStats.values().stream()
+                .mapToLong(v -> ((Number) v).longValue()).sum();
+
+        // 工区统计
+        List<Map<String, Object>> areaStats = statisticsService.getByArea(periodId, null);
+
+        // 项目统计
+        List<Map<String, Object>> projectStats = statisticsService.getByProject(periodId);
+
+        // 统计卡片
+        double totalMinutes = areaStats.stream().mapToDouble(a -> ((Number) a.get("hours")).doubleValue()).sum();
+        double totalPoints = areaStats.stream().mapToDouble(a -> ((Number) a.get("points")).doubleValue()).sum();
+
         List<Map<String, Object>> cards = new ArrayList<>();
-        cards.add(createCard("当前月份总工时", "12,580", "分钟", "#409eff"));
-        cards.add(createCard("当前月份总工分", "3,260", "分", "#67c23a"));
-        cards.add(createCard("已提交工区数", "6", "个", "#e6a23c"));
-        cards.add(createCard("已审核通过数", "45", "条", "#f56c6c"));
+        cards.add(createCard("工时合计", formatNumber(totalMinutes), "分钟", "#409eff"));
+        cards.add(createCard("工分合计", formatNumber(totalPoints), "分", "#67c23a"));
+        cards.add(createCard("涉及工区", String.valueOf(areaStats.size()), "个", "#e6a23c"));
+        cards.add(createCard("填报记录", String.valueOf((long) totalReports), "条", "#f56c6c"));
         data.put("cards", cards);
 
-        // 车间对比图表数据
-        List<Map<String, Object>> workshopChart = new ArrayList<>();
-        workshopChart.add(createChartItem("贺州通信车间", 3200));
-        workshopChart.add(createChartItem("桂林通信车间", 2800));
-        workshopChart.add(createChartItem("柳州通信车间", 1900));
-        workshopChart.add(createChartItem("南宁通信车间", 2200));
-        data.put("workshopChart", workshopChart);
+        // 工区对比图表
+        data.put("workshopChart", areaStats.stream().map(a -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("name", a.get("name"));
+            item.put("value", ((Number) a.get("hours")).doubleValue());
+            return item;
+        }).collect(Collectors.toList()));
 
-        // 用工项目占比图表数据
-        List<Map<String, Object>> projectChart = new ArrayList<>();
-        projectChart.add(createChartItem("施工", 3500));
-        projectChart.add(createChartItem("培训", 1800));
-        projectChart.add(createChartItem("维修", 2200));
-        projectChart.add(createChartItem("故障处理", 1500));
-        projectChart.add(createChartItem("其他", 2800));
-        data.put("projectChart", projectChart);
+        // 项目占比图表
+        data.put("projectChart", projectStats.stream().map(p -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("name", p.get("name"));
+            item.put("value", ((Number) p.get("hours")).doubleValue());
+            return item;
+        }).collect(Collectors.toList()));
 
         return Result.ok(data);
     }
 
-    /** 构造卡片数据 */
     private Map<String, Object> createCard(String title, String value, String unit, String color) {
         Map<String, Object> card = new LinkedHashMap<>();
         card.put("title", title);
@@ -73,11 +82,9 @@ public class DashboardController {
         return card;
     }
 
-    /** 构造图表数据项 */
-    private Map<String, Object> createChartItem(String name, Integer value) {
-        Map<String, Object> item = new LinkedHashMap<>();
-        item.put("name", name);
-        item.put("value", value);
-        return item;
+    private String formatNumber(double v) {
+        if (v >= 10000) return String.format("%.1f万", v / 10000);
+        if (v >= 1000) return String.format("%.0f", v);
+        return String.format("%.1f", v);
     }
 }

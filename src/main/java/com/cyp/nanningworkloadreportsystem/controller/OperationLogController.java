@@ -1,8 +1,6 @@
 package com.cyp.nanningworkloadreportsystem.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cyp.nanningworkloadreportsystem.common.PageResult;
 import com.cyp.nanningworkloadreportsystem.common.Result;
 import com.cyp.nanningworkloadreportsystem.entity.OperationLog;
@@ -11,6 +9,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 操作日志控制器
@@ -29,11 +29,13 @@ public class OperationLogController {
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) String moduleName) {
-        Page<OperationLog> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<OperationLog> wrapper = new LambdaQueryWrapper<OperationLog>()
                 .eq(moduleName != null, OperationLog::getModuleName, moduleName)
                 .orderByDesc(OperationLog::getOperateTime);
-        IPage<OperationLog> result = operationLogMapper.selectPage(page, wrapper);
-        return Result.ok(PageResult.of(result.getTotal(), pageNum, pageSize, result.getRecords()));
+        // 手动分页（MyBatis Plus 3.5.15 无 PaginationInnerInterceptor）
+        Long total = operationLogMapper.selectCount(wrapper);
+        List<OperationLog> records = operationLogMapper.selectList(
+                wrapper.last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize));
+        return Result.ok(PageResult.of(total, pageNum, pageSize, records));
     }
 }

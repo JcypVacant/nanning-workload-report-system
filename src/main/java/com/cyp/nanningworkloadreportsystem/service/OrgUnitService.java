@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class OrgUnitService {
 
     private final OrgUnitMapper orgUnitMapper;
+    private final OperationLogService logService;
 
     /**
      * 获取完整组织树（所有启用的组织）
@@ -90,6 +91,7 @@ public class OrgUnitService {
         if (org.getEnabled() == null) org.setEnabled(1);
         orgUnitMapper.insert(org);
         log.info("创建组织: {}", org.getOrgName());
+        logService.record("组织管理", "CREATE", String.valueOf(org.getId()), "创建组织: " + org.getOrgName());
         return org;
     }
 
@@ -100,6 +102,7 @@ public class OrgUnitService {
     public void update(OrgUnit org) {
         orgUnitMapper.updateById(org);
         log.info("更新组织: ID={}", org.getId());
+        logService.record("组织管理", "UPDATE", String.valueOf(org.getId()), "更新组织: ID=" + org.getId());
     }
 
     /**

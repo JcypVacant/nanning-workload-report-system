@@ -35,6 +35,7 @@ public class WorkReportService {
     private final EmployeeMapper employeeMapper;
     private final OrgUnitMapper orgUnitMapper;
     private final AuditRecordMapper auditRecordMapper;
+    private final OperationLogService logService;
 
     /**
      * 分页查询填报记录
@@ -179,6 +180,8 @@ public class WorkReportService {
 
         log.info("创建填报记录: reportId={}, employeeId={}, workDate={}, type={}",
                 report.getId(), employeeId, workDate, reportType);
+        logService.record("工区填报", "CREATE", String.valueOf(report.getId()),
+                "创建填报: 人员" + employeeId + " " + workDate + " " + reportType);
         enrichReportInfo(report);
         return report;
     }
@@ -223,6 +226,7 @@ public class WorkReportService {
         report.setUpdatedBy(UserContext.getUserId());
         reportMapper.updateById(report);
 
+        logService.record("工区填报", "UPDATE", String.valueOf(reportId), "更新填报记录");
         enrichReportInfo(report);
         return report;
     }
@@ -272,5 +276,6 @@ public class WorkReportService {
         auditRecordMapper.insert(audit);
 
         log.info("提交填报数据: reportId={}", reportId);
+        logService.record("工区填报", "SUBMIT", String.valueOf(reportId), "提交填报数据");
     }
 }

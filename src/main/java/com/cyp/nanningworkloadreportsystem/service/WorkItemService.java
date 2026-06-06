@@ -20,6 +20,7 @@ import java.util.List;
 public class WorkItemService {
 
     private final WorkItemMapper workItemMapper;
+    private final OperationLogService logService;
 
     /** 获取完整用工项目树 */
     public List<WorkItem> getTree() {
@@ -59,6 +60,7 @@ public class WorkItemService {
         buildItemPath(item);
         workItemMapper.insert(item);
         log.info("新增用工项目: {}", item.getItemPath());
+        logService.record("用工项目字典", "CREATE", String.valueOf(item.getId()), "新增项目: " + item.getItemPath());
         return item;
     }
 

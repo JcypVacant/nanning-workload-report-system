@@ -27,6 +27,7 @@ public class AuditService {
     private final WorkReportItemMapper itemMapper;
     private final EmployeeMapper employeeMapper;
     private final OrgUnitMapper orgUnitMapper;
+    private final OperationLogService logService;
 
     /**
      * 查询待审核的填报记录（按工区汇总）
@@ -71,6 +72,7 @@ public class AuditService {
         // 创建审核记录
         createAuditRecord(report, "APPROVE", comment);
         log.info("审核通过: reportId={}, comment={}", reportId, comment);
+        logService.record("车间审核", "APPROVE", String.valueOf(reportId), "审核通过: " + (comment != null ? comment : ""));
     }
 
     /**
@@ -97,6 +99,7 @@ public class AuditService {
 
         createAuditRecord(report, "RETURN", comment);
         log.info("退回修改: reportId={}, reason={}", reportId, comment);
+        logService.record("车间审核", "RETURN", String.valueOf(reportId), "退回修改: " + (comment != null ? comment : ""));
     }
 
     /**
