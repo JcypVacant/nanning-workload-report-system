@@ -75,6 +75,13 @@ public class OrgUnitService {
     }
 
     /**
+     * 获取所有工区列表（用于人员管理下拉选择）
+     */
+    public List<OrgUnit> getAllAreas() {
+        return orgUnitMapper.selectByOrgType("WORK_AREA");
+    }
+
+    /**
      * 新增组织
      */
     @Transactional

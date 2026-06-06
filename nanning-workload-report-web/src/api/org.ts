@@ -20,6 +20,11 @@ export const orgApi = {
     return request.get(`/org/workshops/${workshopId}/areas`)
   },
 
+  /** 获取所有工区列表（用于人员管理下拉选择） */
+  getAllAreas(): Promise<OrgUnit[]> {
+    return request.get('/org/areas')
+  },
+
   /** 新增组织 */
   create(data: Partial<OrgUnit>): Promise<OrgUnit> {
     return request.post('/org', data)

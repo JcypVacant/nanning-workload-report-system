@@ -31,12 +31,13 @@ public class EmployeeService {
     private final OrgUnitMapper orgUnitMapper;
 
     /** 分页查询人员（手动分页：先COUNT再LIMIT） */
-    public IPage<Employee> getPage(Integer pageNum, Integer pageSize, String keyword, Long workshopId, Long areaId) {
+    public IPage<Employee> getPage(Integer pageNum, Integer pageSize, String keyword, Long workshopId, Long areaId, String status) {
         // 构建公用条件
         LambdaQueryWrapper<Employee> countWrapper = new LambdaQueryWrapper<Employee>()
                 .like(keyword != null, Employee::getName, keyword)
                 .eq(workshopId != null, Employee::getWorkshopId, workshopId)
                 .eq(areaId != null, Employee::getAreaId, areaId)
+                .eq(status != null && !status.isEmpty(), Employee::getEmployeeStatus, status)
                 .eq(Employee::getEnabled, 1);
 
         // 数据范围
@@ -54,6 +55,7 @@ public class EmployeeService {
                 .like(keyword != null, Employee::getName, keyword)
                 .eq(workshopId != null, Employee::getWorkshopId, workshopId)
                 .eq(areaId != null, Employee::getAreaId, areaId)
+                .eq(status != null && !status.isEmpty(), Employee::getEmployeeStatus, status)
                 .eq(Employee::getEnabled, 1)
                 .orderByDesc(Employee::getCreateTime)
                 .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);

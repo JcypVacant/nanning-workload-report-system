@@ -40,6 +40,12 @@ public class OrgUnitController {
         return Result.ok(orgUnitService.getAreasByWorkshopId(workshopId));
     }
 
+    @Operation(summary = "获取所有工区列表")
+    @GetMapping("/areas")
+    public Result<List<OrgUnit>> getAllAreas() {
+        return Result.ok(orgUnitService.getAllAreas());
+    }
+
     @Operation(summary = "新增组织")
     @SaCheckRole("SECTION_ADMIN")
     @PostMapping

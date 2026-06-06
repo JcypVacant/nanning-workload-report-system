@@ -2,6 +2,8 @@
   人员管理页面
   功能：人员的增删改查、调动、启停
   分页：每页10条，支持按姓名搜索
+  信息字段：姓名、性别、单位、部门（车间）、班组、出生日期、
+            职务名称、聘任专业职务、工种、职级分类、状态
 -->
 <template>
   <div>
@@ -17,8 +19,15 @@
           <el-input v-model="keyword" placeholder="搜索人员姓名" clearable @keyup.enter="handleSearch" />
         </el-form-item>
         <el-form-item label="车间">
-          <el-select v-model="filterWorkshopId" placeholder="全部车间" clearable style="width:160px">
+          <el-select v-model="filterWorkshopId" placeholder="全部车间" clearable style="width:180px">
             <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filterStatus" placeholder="全部状态" clearable style="width:120px">
+            <el-option label="在岗" value="在岗" />
+            <el-option label="调出" value="调出" />
+            <el-option label="停用" value="停用" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -27,23 +36,26 @@
         </el-form-item>
       </el-form>
 
-      <!-- 数据表格 -->
-      <el-table :data="tableData" border stripe v-loading="loading">
-        <el-table-column prop="name" label="姓名" width="100" />
-        <el-table-column prop="gender" label="性别" width="60" />
-        <el-table-column prop="departmentName" label="车间" width="140" />
-        <el-table-column prop="teamName" label="工区/班组" width="140" />
-        <el-table-column prop="positionName" label="职位" width="120" />
+      <!-- 数据表格：包含全部11个人员信息字段 -->
+      <el-table :data="tableData" border stripe v-loading="loading" style="width:100%">
+        <el-table-column prop="name" label="姓名" width="80" fixed />
+        <el-table-column prop="gender" label="性别" width="55" />
+        <el-table-column prop="unitName" label="单位" min-width="120" />
+        <el-table-column prop="departmentName" label="部门（车间）" min-width="140" />
+        <el-table-column prop="teamName" label="班组" min-width="120" />
+        <el-table-column prop="birthDate" label="出生日期" width="110" />
+        <el-table-column prop="positionName" label="职务名称" min-width="120" />
+        <el-table-column prop="professionalPostType" label="聘任专业职务" min-width="130" />
         <el-table-column prop="workType" label="工种" width="100" />
-        <el-table-column prop="rankCategory" label="职级" width="80" />
-        <el-table-column prop="employeeStatus" label="状态" width="80">
+        <el-table-column prop="rankCategory" label="职级分类" width="100" />
+        <el-table-column prop="employeeStatus" label="状态" width="75">
           <template #default="{ row }">
-            <el-tag size="small" :type="row.employeeStatus === '在岗' ? 'success' : 'info'">
+            <el-tag size="small" :type="row.employeeStatus === '在岗' ? 'success' : row.employeeStatus === '调出' ? 'warning' : 'info'">
               {{ row.employeeStatus }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="220" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showEdit(row)">编辑</el-button>
             <el-button link type="warning" size="small" @click="showTransfer(row)">调动</el-button>
@@ -54,7 +66,7 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页组件：每页10条 -->
+      <!-- 分页组件 -->
       <div class="pagination-wrap">
         <el-pagination
           v-model:current-page="pageNum"
@@ -69,32 +81,44 @@
     </el-card>
 
     <!-- 新增/编辑对话框 -->
-    <el-dialog :title="editingId ? '编辑人员' : '新增人员'" v-model="dialogVisible" width="620px">
-      <el-form :model="form" label-width="100px">
+    <el-dialog :title="editingId ? '编辑人员' : '新增人员'" v-model="dialogVisible" width="750px">
+      <el-form :model="form" label-width="110px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="姓名"><el-input v-model="form.name" placeholder="人员姓名" /></el-form-item>
+            <el-form-item label="姓名" required><el-input v-model="form.name" placeholder="人员姓名" /></el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="性别">
-              <el-select v-model="form.gender"><el-option label="男" value="男" /><el-option label="女" value="女" /></el-select>
+            <el-form-item label="性别" required>
+              <el-select v-model="form.gender" style="width:100%">
+                <el-option label="男" value="男" /><el-option label="女" value="女" />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="车间ID"><el-input-number v-model="form.workshopId" :min="1" style="width:100%" /></el-form-item>
+            <el-form-item label="单位"><el-input v-model="form.unitName" placeholder="如：南宁通信段" /></el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="工区ID"><el-input-number v-model="form.areaId" :min="1" style="width:100%" /></el-form-item>
+            <el-form-item label="部门（车间）"><el-input v-model="form.departmentName" placeholder="车间名称" /></el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="班组"><el-input v-model="form.teamName" placeholder="班组/工区名称" /></el-form-item>
+            <el-form-item label="班组"><el-input v-model="form.teamName" placeholder="班组名称" /></el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="职位"><el-input v-model="form.positionName" placeholder="职位名称" /></el-form-item>
+            <el-form-item label="出生日期">
+              <el-date-picker v-model="form.birthDate" type="date" placeholder="选择出生日期" style="width:100%" value-format="YYYY-MM-DD" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="职务名称"><el-input v-model="form.positionName" placeholder="职务名称" /></el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="聘任专业职务"><el-input v-model="form.professionalPostType" placeholder="聘任专业职务工种" /></el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
@@ -102,14 +126,39 @@
             <el-form-item label="工种"><el-input v-model="form.workType" placeholder="工种" /></el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="职级"><el-input v-model="form.rankCategory" placeholder="职级分类" /></el-form-item>
+            <el-form-item label="职级分类"><el-input v-model="form.rankCategory" placeholder="职级分类" /></el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="状态">
-          <el-select v-model="form.employeeStatus">
-            <el-option label="在岗" value="在岗" /><el-option label="调出" value="调出" /><el-option label="停用" value="停用" />
-          </el-select>
-        </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="所属车间" required>
+              <el-select v-model="form.workshopId" placeholder="选择车间" style="width:100%" filterable>
+                <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="所属工区" required>
+              <el-select v-model="form.areaId" placeholder="选择工区" style="width:100%" filterable>
+                <el-option v-for="a in areas" :key="a.id" :label="a.orgName" :value="a.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="状态">
+              <el-select v-model="form.employeeStatus" style="width:100%">
+                <el-option label="在岗" value="在岗" />
+                <el-option label="调出" value="调出" />
+                <el-option label="停用" value="停用" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="备注"><el-input v-model="form.remark" placeholder="备注信息" /></el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -118,19 +167,30 @@
     </el-dialog>
 
     <!-- 人员调动对话框 -->
-    <el-dialog title="人员调动" v-model="transferVisible" width="480px">
+    <el-dialog title="人员调动" v-model="transferVisible" width="520px">
       <el-form label-width="100px">
         <el-form-item label="调动人员">
           <el-tag size="large">{{ transferEmp?.name }}</el-tag>
         </el-form-item>
+        <el-form-item label="原单位">
+          <span>{{ transferEmp?.unitName || '-' }}</span>
+        </el-form-item>
         <el-form-item label="原属车间">
           <span>{{ transferEmp?.departmentName || '-' }}</span>
         </el-form-item>
-        <el-form-item label="调往车间ID">
-          <el-input-number v-model="transferForm.afterWorkshopId" :min="1" style="width:100%" />
+        <el-form-item label="原班组">
+          <span>{{ transferEmp?.teamName || '-' }}</span>
         </el-form-item>
-        <el-form-item label="调往工区ID">
-          <el-input-number v-model="transferForm.afterAreaId" :min="1" style="width:100%" />
+        <el-divider />
+        <el-form-item label="调往车间" required>
+          <el-select v-model="transferForm.afterWorkshopId" placeholder="选择车间" style="width:100%" filterable>
+            <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="调往工区" required>
+          <el-select v-model="transferForm.afterAreaId" placeholder="选择工区" style="width:100%" filterable>
+            <el-option v-for="a in areas" :key="a.id" :label="a.orgName" :value="a.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="调往班组">
           <el-input v-model="transferForm.afterTeamName" placeholder="新班组名称" />
@@ -150,7 +210,7 @@
 <script setup lang="ts">
 /**
  * 人员管理页面逻辑
- * 支持分页查询（每页10条）、按姓名/车间搜索、新增、编辑、调动、启停
+ * 支持分页查询（每页10条）、按姓名/车间/状态搜索、新增、编辑、调动、启停
  */
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -161,13 +221,15 @@ import type { Employee, OrgUnit } from '@/types'
 // ==================== 搜索条件 ====================
 const keyword = ref('')
 const filterWorkshopId = ref<number | null>(null)
+const filterStatus = ref('')
 const workshops = ref<OrgUnit[]>([])
+const areas = ref<OrgUnit[]>([])
 
 // ==================== 表格与分页状态 ====================
 const tableData = ref<Employee[]>([])
 const loading = ref(false)
 const pageNum = ref(1)
-const pageSize = ref(10)    // 每页10条
+const pageSize = ref(10)
 const total = ref(0)
 
 // ==================== 对话框状态 ====================
@@ -175,25 +237,32 @@ const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 const form = ref<Partial<Employee>>({
-  gender: '男', workshopId: 10, areaId: 12, employeeStatus: '在岗'
+  gender: '男',
+  unitName: '南宁通信段',
+  employeeStatus: '在岗',
+  workshopId: undefined,
+  areaId: undefined
 })
 
 // ==================== 调动对话框状态 ====================
 const transferVisible = ref(false)
 const transferEmp = ref<Employee | null>(null)
-const transferForm = ref({ afterWorkshopId: 0, afterAreaId: 0, afterTeamName: '', transferReason: '' })
+const transferForm = ref({
+  afterWorkshopId: 0,
+  afterAreaId: 0,
+  afterTeamName: '',
+  transferReason: ''
+})
 
 onMounted(async () => {
-  // 加载车间列表用于搜索下拉
-  try { workshops.value = await orgApi.getWorkshops() } catch { /* 忽略 */ }
+  try {
+    workshops.value = await orgApi.getWorkshops()
+    areas.value = await orgApi.getAllAreas()
+  } catch { /* 忽略 */ }
   loadData()
 })
 
-/**
- * 加载分页数据
- * 调用后端 GET /api/v1/employees/page 接口
- * 每页10条，支持按姓名和车间筛选
- */
+/** 加载分页数据 */
 async function loadData() {
   loading.value = true
   try {
@@ -201,7 +270,8 @@ async function loadData() {
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       keyword: keyword.value,
-      workshopId: filterWorkshopId.value
+      workshopId: filterWorkshopId.value,
+      status: filterStatus.value || undefined
     })
     tableData.value = res.records
     total.value = res.total
@@ -212,37 +282,29 @@ async function loadData() {
   }
 }
 
-/**
- * 搜索：重置到第1页
- */
-function handleSearch() {
-  pageNum.value = 1
-  loadData()
-}
+function handleSearch() { pageNum.value = 1; loadData() }
 
-/**
- * 重置搜索条件
- */
 function handleReset() {
   keyword.value = ''
   filterWorkshopId.value = null
+  filterStatus.value = ''
   pageNum.value = 1
   loadData()
 }
 
-/**
- * 每页条数变化时：重置到第1页
- */
-function handleSizeChange() {
-  pageNum.value = 1
-  loadData()
-}
+function handleSizeChange() { pageNum.value = 1; loadData() }
 
 // ==================== 新增/编辑 ====================
 
 function showCreate() {
   editingId.value = null
-  form.value = { gender: '男', workshopId: 10, areaId: 12, employeeStatus: '在岗' }
+  form.value = {
+    gender: '男',
+    unitName: '南宁通信段',
+    employeeStatus: '在岗',
+    workshopId: workshops.value[0]?.id,
+    areaId: areas.value[0]?.id
+  }
   dialogVisible.value = true
 }
 
@@ -253,6 +315,9 @@ function showEdit(row: Employee) {
 }
 
 async function handleSave() {
+  if (!form.value.name) { ElMessage.warning('请输入姓名'); return }
+  if (!form.value.workshopId) { ElMessage.warning('请选择所属车间'); return }
+  if (!form.value.areaId) { ElMessage.warning('请选择所属工区'); return }
   saving.value = true
   try {
     if (editingId.value) {
@@ -285,6 +350,8 @@ function showTransfer(row: Employee) {
 }
 
 async function handleTransfer() {
+  if (!transferForm.value.afterWorkshopId) { ElMessage.warning('请选择调往车间'); return }
+  if (!transferForm.value.afterAreaId) { ElMessage.warning('请选择调往工区'); return }
   saving.value = true
   try {
     await employeeApi.transfer({

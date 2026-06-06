@@ -66,26 +66,40 @@
     </el-card>
 
     <!-- 新增/编辑对话框 -->
-    <el-dialog :title="editingId ? '编辑账号' : '新增账号'" v-model="dialogVisible" width="480px">
-      <el-form :model="form" label-width="80px">
-        <el-form-item label="账号">
-          <el-input v-model="form.username" :disabled="!!editingId" placeholder="登录账号名" />
+    <el-dialog :title="editingId ? '编辑账号' : '新增账号'" v-model="dialogVisible" width="520px">
+      <el-form :model="form" label-width="100px">
+        <el-form-item label="登录账号">
+          <el-input v-model="form.username" :disabled="!!editingId" placeholder="登录账号名（创建后不可修改）" />
         </el-form-item>
-        <el-form-item label="姓名">
+        <el-form-item label="真实姓名">
           <el-input v-model="form.realName" placeholder="真实姓名" />
         </el-form-item>
-        <el-form-item label="电话">
+        <el-form-item label="联系电话">
           <el-input v-model="form.phone" placeholder="联系电话" />
         </el-form-item>
         <el-form-item label="角色">
-          <el-select v-model="form.roleCode" style="width:100%">
-            <el-option label="段级管理员" value="SECTION_ADMIN" />
-            <el-option label="车间管理员" value="WORKSHOP_ADMIN" />
-            <el-option label="工区填报员" value="AREA_REPORTER" />
+          <el-select v-model="form.roleCode" style="width:100%" @change="onRoleChange">
+            <el-option label="段级管理员 — 管理全段数据" value="SECTION_ADMIN" />
+            <el-option label="车间管理员 — 管理本车间及下属工区" value="WORKSHOP_ADMIN" />
+            <el-option label="工区填报员 — 填报本工区数据" value="AREA_REPORTER" />
           </el-select>
         </el-form-item>
-        <el-form-item label="绑定组织ID">
-          <el-input-number v-model="form.orgId" :min="0" placeholder="段级填0，车间/工区填对应ID" style="width:100%" />
+        <!-- 段级管理员：无需绑定组织 -->
+        <!-- 车间管理员：绑定一个车间 -->
+        <el-form-item v-if="form.roleCode === 'WORKSHOP_ADMIN'" label="绑定车间">
+          <el-select v-model="form.orgId" placeholder="选择所属车间" style="width:100%" filterable>
+            <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
+          </el-select>
+        </el-form-item>
+        <!-- 工区填报员：绑定一个工区 -->
+        <el-form-item v-if="form.roleCode === 'AREA_REPORTER'" label="绑定工区">
+          <el-select v-model="form.orgId" placeholder="选择所属工区" style="width:100%" filterable>
+            <el-option v-for="a in areas" :key="a.id" :label="a.orgName" :value="a.id" />
+          </el-select>
+        </el-form-item>
+        <!-- 段级管理员：显示提示，无需选择 -->
+        <el-form-item v-if="form.roleCode === 'SECTION_ADMIN'" label="数据范围">
+          <el-tag type="info">段级管理员可查看和管理全段所有数据</el-tag>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -104,7 +118,8 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { userApi } from '@/api/user'
-import type { SysUser } from '@/types'
+import { orgApi } from '@/api/org'
+import type { SysUser, OrgUnit } from '@/types'
 
 /** 角色显示映射 */
 const roleMap: Record<string, string> = {
@@ -112,6 +127,10 @@ const roleMap: Record<string, string> = {
   WORKSHOP_ADMIN: '车间管理员',
   AREA_REPORTER: '工区填报员'
 }
+
+// ==================== 组织列表（用于绑定选择） ====================
+const workshops = ref<OrgUnit[]>([])
+const areas = ref<OrgUnit[]>([])
 
 // ==================== 表格与分页状态 ====================
 const tableData = ref<SysUser[]>([])
@@ -127,7 +146,23 @@ const editingId = ref<number | null>(null)
 const saving = ref(false)
 const form = ref({ username: '', realName: '', phone: '', roleCode: 'AREA_REPORTER', orgId: 0 })
 
-onMounted(() => loadData())
+onMounted(async () => {
+  // 加载车间和工区列表用于账号绑定选择
+  try {
+    const [w, a] = await Promise.all([orgApi.getWorkshops(), orgApi.getAllAreas()])
+    workshops.value = w; areas.value = a
+  } catch { /* 忽略 */ }
+  loadData()
+})
+
+/** 角色切换时重置组织绑定 */
+function onRoleChange() {
+  if (form.value.roleCode === 'SECTION_ADMIN') {
+    form.value.orgId = 0
+  } else {
+    form.value.orgId = 0  // 重置，等待用户选择
+  }
+}
 
 /**
  * 加载分页数据

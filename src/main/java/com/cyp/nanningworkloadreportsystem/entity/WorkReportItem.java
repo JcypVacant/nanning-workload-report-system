@@ -25,8 +25,11 @@ public class WorkReportItem {
     /** 用工项目ID（关联work_item.id，仅限叶子节点） */
     private Long workItemId;
 
-    /** 数值（分钟或工分，仅NUMBER类型项目填写） */
+    /** 工时数值（分钟，仅NUMBER类型项目填写） */
     private java.math.BigDecimal numberValue;
+
+    /** 工分数值（工分，仅NUMBER类型项目填写） */
+    private java.math.BigDecimal pointsValue;
 
     /** 文本内容（仅TEXT类型项目填写） */
     private String textValue;
