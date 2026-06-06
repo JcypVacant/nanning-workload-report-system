@@ -25,12 +25,13 @@ public class AuditService {
     private final AuditRecordMapper auditRecordMapper;
     private final WorkReportMapper reportMapper;
     private final WorkReportItemMapper itemMapper;
+    private final WorkItemMapper workItemMapper;
     private final EmployeeMapper employeeMapper;
     private final OrgUnitMapper orgUnitMapper;
     private final OperationLogService logService;
 
     /**
-     * 查询待审核的填报记录（按工区汇总）
+     * 查询待审核的填报记录（仅"已提交"状态）
      * 车间管理员只能查看下属工区的数据
      */
     public List<WorkReport> getPending(Long periodId) {
@@ -44,7 +45,85 @@ public class AuditService {
         }
 
         wrapper.orderByAsc(WorkReport::getAreaId, WorkReport::getWorkDate);
-        return reportMapper.selectList(wrapper);
+        List<WorkReport> reports = reportMapper.selectList(wrapper);
+        reports.forEach(this::enrich);
+        return reports;
+    }
+
+    /**
+     * 查询所有状态的填报记录（已提交 + 已审核 + 已退回）
+     * 车间管理员只能查看下属工区的数据，段级管理员可查看全部
+     */
+    public List<WorkReport> getAllReports(Long periodId, String status) {
+        LambdaQueryWrapper<WorkReport> wrapper = new LambdaQueryWrapper<WorkReport>()
+                .eq(periodId != null, WorkReport::getPeriodId, periodId)
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status);
+
+        // 车间管理员只能查看本车间下属工区的数据
+        if (UserContext.isWorkshopAdmin()) {
+            wrapper.eq(WorkReport::getWorkshopId, UserContext.getOrgId());
+        }
+
+        wrapper.orderByAsc(WorkReport::getAreaId, WorkReport::getWorkDate);
+        List<WorkReport> reports = reportMapper.selectList(wrapper);
+        reports.forEach(this::enrich);
+        return reports;
+    }
+
+    /**
+     * 分页查询所有状态的填报记录（已提交 + 已审核 + 已退回）
+     * 手动分页：先 COUNT 再 LIMIT
+     */
+    public IPage<WorkReport> getAllReportsPage(Integer pageNum, Integer pageSize, Long periodId, String status) {
+        LambdaQueryWrapper<WorkReport> countWrapper = new LambdaQueryWrapper<WorkReport>()
+                .eq(periodId != null, WorkReport::getPeriodId, periodId)
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status);
+
+        if (UserContext.isWorkshopAdmin()) {
+            countWrapper.eq(WorkReport::getWorkshopId, UserContext.getOrgId());
+        }
+
+        Long total = reportMapper.selectCount(countWrapper);
+
+        LambdaQueryWrapper<WorkReport> dataWrapper = new LambdaQueryWrapper<WorkReport>()
+                .eq(periodId != null, WorkReport::getPeriodId, periodId)
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status);
+
+        if (UserContext.isWorkshopAdmin()) {
+            dataWrapper.eq(WorkReport::getWorkshopId, UserContext.getOrgId());
+        }
+
+        dataWrapper.orderByAsc(WorkReport::getAreaId, WorkReport::getWorkDate)
+                .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+        List<WorkReport> records = reportMapper.selectList(dataWrapper);
+        records.forEach(this::enrich);
+
+        Page<WorkReport> page = new Page<>(pageNum, pageSize);
+        page.setTotal(total);
+        page.setRecords(records);
+        return page;
+    }
+
+    /** 为填报记录加载关联信息（人员姓名、工区名称、明细等） */
+    private void enrich(WorkReport report) {
+        Employee emp = employeeMapper.selectById(report.getEmployeeId());
+        if (emp != null) report.setEmployeeName(emp.getName());
+        OrgUnit area = orgUnitMapper.selectById(report.getAreaId());
+        if (area != null) report.setAreaName(area.getOrgName());
+        OrgUnit workshop = orgUnitMapper.selectById(report.getWorkshopId());
+        if (workshop != null) report.setWorkshopName(workshop.getOrgName());
+        List<WorkReportItem> items = itemMapper.selectList(
+                new LambdaQueryWrapper<WorkReportItem>()
+                        .eq(WorkReportItem::getReportId, report.getId())
+                        .orderByAsc(WorkReportItem::getSortOrder));
+        for (WorkReportItem item : items) {
+            WorkItem wi = workItemMapper.selectById(item.getWorkItemId());
+            if (wi != null) {
+                item.setItemName(wi.getItemName());
+                item.setItemPath(wi.getItemPath());
+            }
+        }
+        report.setItems(items);
     }
 
     /**

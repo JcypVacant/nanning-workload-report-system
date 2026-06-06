@@ -31,6 +31,25 @@ public class AuditController {
         return Result.ok(auditService.getPending(periodId));
     }
 
+    @Operation(summary = "查询所有填报记录（含已审核、已退回、已提交）")
+    @GetMapping("/reports")
+    public Result<List<WorkReport>> getAllReports(
+            @RequestParam(required = false) Long periodId,
+            @RequestParam(required = false) String status) {
+        return Result.ok(auditService.getAllReports(periodId, status));
+    }
+
+    @Operation(summary = "分页查询所有填报记录")
+    @GetMapping("/reports/page")
+    public Result<PageResult<WorkReport>> getAllReportsPage(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) Long periodId,
+            @RequestParam(required = false) String status) {
+        IPage<WorkReport> page = auditService.getAllReportsPage(pageNum, pageSize, periodId, status);
+        return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
+    }
+
     @Operation(summary = "审核通过")
     @PostMapping("/{reportId}/approve")
     public Result<Void> approve(@PathVariable Long reportId, @RequestBody(required = false) AuditRequest req) {

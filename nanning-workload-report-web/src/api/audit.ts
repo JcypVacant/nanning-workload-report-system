@@ -10,6 +10,16 @@ export const auditApi = {
     return request.get('/audit/pending', { params })
   },
 
+  /** 查询所有状态的填报记录（已提交 + 已审核 + 已退回） */
+  getAllReports(params: Record<string, any>): Promise<any[]> {
+    return request.get('/audit/reports', { params })
+  },
+
+  /** 分页查询所有状态的填报记录 */
+  getAllReportsPage(params: Record<string, any>): Promise<any> {
+    return request.get('/audit/reports/page', { params })
+  },
+
   /** 审核通过 */
   approve(reportId: number, comment?: string): Promise<void> {
     return request.post(`/audit/${reportId}/approve`, { comment })
