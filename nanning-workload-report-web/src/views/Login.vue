@@ -40,6 +40,11 @@
           />
         </el-form-item>
 
+        <!-- 记住密码 -->
+        <el-form-item>
+          <el-checkbox v-model="rememberPwd">记住密码</el-checkbox>
+        </el-form-item>
+
         <el-form-item>
           <el-button
             type="primary"
@@ -62,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
@@ -81,10 +86,21 @@ const formRef = ref<FormInstance>()
 /** 登录加载状态 */
 const loading = ref(false)
 
+/** 记住密码 */
+const rememberPwd = ref(true)
+
 /** 登录表单数据 */
 const loginForm = reactive({
   username: '',
   password: ''
+})
+
+// 页面加载时恢复保存的账号密码
+onMounted(() => {
+  const savedUser = localStorage.getItem('remembered_username')
+  const savedPwd = localStorage.getItem('remembered_password')
+  if (savedUser) loginForm.username = savedUser
+  if (savedPwd) loginForm.password = savedPwd
 })
 
 /** 表单验证规则 */
@@ -114,6 +130,14 @@ async function handleLogin() {
   try {
     // 调用登录API
     await userStore.login(loginForm.username, loginForm.password)
+    // 记住密码
+    if (rememberPwd.value) {
+      localStorage.setItem('remembered_username', loginForm.username)
+      localStorage.setItem('remembered_password', loginForm.password)
+    } else {
+      localStorage.removeItem('remembered_username')
+      localStorage.removeItem('remembered_password')
+    }
     ElMessage.success('登录成功')
     // 跳转到首页看板
     router.push('/dashboard')
