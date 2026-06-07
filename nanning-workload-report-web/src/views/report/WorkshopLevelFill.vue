@@ -74,6 +74,11 @@
             <el-option label="工分" value="POINTS" />
           </el-select>
         </el-form-item>
+        <el-form-item label="工区">
+          <el-select v-model="reportAreaId" placeholder="全部工区" clearable style="width:150px">
+            <el-option v-for="a in areas" :key="a.id" :label="a.orgName" :value="a.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="filterStatus" placeholder="全部" clearable style="width:110px">
             <el-option label="草稿" value="草稿" />
@@ -89,12 +94,19 @@
       </el-form>
       <el-table :data="reportList" border stripe v-loading="loadingReports">
         <el-table-column prop="employeeName" label="人员" width="100" />
+        <el-table-column prop="areaName" label="所属工区" width="120" />
         <el-table-column prop="workDate" label="日期" width="120" />
         <el-table-column prop="reportType" label="类别" width="80">
           <template #default="{ row }">{{ row.reportType === 'HOURS' ? '工时' : '工分' }}</template>
         </el-table-column>
         <el-table-column label="项目明细" min-width="200">
           <template #default="{ row }">{{ row.items?.map((i: any) => i.itemPath || i.itemName).join(', ') }}</template>
+        </el-table-column>
+        <el-table-column label="数值" width="100">
+          <template #default="{ row }">
+            <template v-if="row.reportType === 'HOURS'">{{ row.items?.reduce((s: number, i: any) => s + (i.numberValue || 0), 0) }} 分钟</template>
+            <template v-else>{{ row.items?.reduce((s: number, i: any) => s + (i.pointsValue || 0), 0) }} 工分</template>
+          </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
@@ -241,6 +253,7 @@ const reportKeyword = ref('')
 const filterWorkDate = ref('')
 const filterReportType = ref('')
 const filterStatus = ref('')
+const reportAreaId = ref<string | number>('')
 
 const totalSumTime = computed(() => items.value.reduce((s, i) => s + (i.numberValue || 0), 0))
 const totalSumPoints = computed(() => items.value.reduce((s, i) => s + (i.pointsValue || 0), 0))
@@ -339,7 +352,8 @@ async function loadReportPage() {
       keyword: reportKeyword.value || undefined,
       workDate: filterWorkDate.value || undefined,
       reportType: filterReportType.value || undefined,
-      status: filterStatus.value || undefined
+      status: filterStatus.value || undefined,
+      areaId: reportAreaId.value || undefined
     })
     reportList.value = res.records
     reportTotal.value = res.total
@@ -365,6 +379,7 @@ function handleReportReset() {
   filterWorkDate.value = ''
   filterReportType.value = ''
   filterStatus.value = ''
+  reportAreaId.value = ''
   reportPageNum.value = 1
   loadReportPage()
 }

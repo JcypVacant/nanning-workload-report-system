@@ -19,7 +19,7 @@
       <el-col :span="6">
         <el-card><div class="stat-card">
           <div class="stat-value" style="color:#67c23a">{{ statusStats.submitted || 0 }}</div>
-          <div class="stat-label">已提交(条)</div>
+          <div class="stat-label">待审核(条)</div>
         </div></el-card>
       </el-col>
       <el-col :span="6">

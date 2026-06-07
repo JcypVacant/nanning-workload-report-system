@@ -44,7 +44,7 @@ public class WorkReportService {
      */
     public IPage<WorkReport> getPage(Integer pageNum, Integer pageSize, Long periodId,
                                       Long employeeId, String status, String reportType,
-                                      String keyword, LocalDate workDate) {
+                                      String keyword, LocalDate workDate, Long areaId) {
         // 如果有人员姓名关键字，先查匹配的 employee ID
         List<Long> keywordEmpIds = null;
         if (keyword != null && !keyword.isEmpty()) {
@@ -65,7 +65,8 @@ public class WorkReportService {
                 .eq(employeeId != null, WorkReport::getEmployeeId, employeeId)
                 .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status)
                 .eq(reportType != null && !reportType.isEmpty(), WorkReport::getReportType, reportType)
-                .eq(workDate != null, WorkReport::getWorkDate, workDate);
+                .eq(workDate != null, WorkReport::getWorkDate, workDate)
+                .eq(areaId != null, WorkReport::getAreaId, areaId);
         if (keywordEmpIds != null) {
             countWrapper.in(WorkReport::getEmployeeId, keywordEmpIds);
         }
@@ -83,6 +84,7 @@ public class WorkReportService {
                 .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status)
                 .eq(reportType != null && !reportType.isEmpty(), WorkReport::getReportType, reportType)
                 .eq(workDate != null, WorkReport::getWorkDate, workDate)
+                .eq(areaId != null, WorkReport::getAreaId, areaId)
                 .orderByDesc(WorkReport::getWorkDate, WorkReport::getCreatedTime)
                 .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
         if (keywordEmpIds != null) {

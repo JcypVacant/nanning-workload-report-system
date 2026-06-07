@@ -36,8 +36,9 @@ public class WorkReportController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String reportType,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) LocalDate workDate) {
-        IPage<WorkReport> page = reportService.getPage(pageNum, pageSize, periodId, employeeId, status, reportType, keyword, workDate);
+            @RequestParam(required = false) LocalDate workDate,
+            @RequestParam(required = false) Long areaId) {
+        IPage<WorkReport> page = reportService.getPage(pageNum, pageSize, periodId, employeeId, status, reportType, keyword, workDate, areaId);
         return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
     }
 
