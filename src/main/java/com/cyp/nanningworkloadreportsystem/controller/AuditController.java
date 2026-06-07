@@ -45,8 +45,9 @@ public class AuditController {
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) Long periodId,
-            @RequestParam(required = false) String status) {
-        IPage<WorkReport> page = auditService.getAllReportsPage(pageNum, pageSize, periodId, status);
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long areaId) {
+        IPage<WorkReport> page = auditService.getAllReportsPage(pageNum, pageSize, periodId, status, areaId);
         return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
     }
 
@@ -54,6 +55,13 @@ public class AuditController {
     @PostMapping("/{reportId}/approve")
     public Result<Void> approve(@PathVariable Long reportId, @RequestBody(required = false) AuditRequest req) {
         auditService.approve(reportId, req != null ? req.getComment() : null);
+        return Result.ok();
+    }
+
+    @Operation(summary = "批量审核通过")
+    @PostMapping("/batch-approve")
+    public Result<Void> batchApprove(@RequestBody BatchAuditRequest req) {
+        auditService.batchApprove(req.getReportIds(), req.getComment());
         return Result.ok();
     }
 
@@ -79,6 +87,12 @@ public class AuditController {
 
     @Data
     public static class AuditRequest {
+        private String comment;
+    }
+
+    @Data
+    public static class BatchAuditRequest {
+        private List<Long> reportIds;
         private String comment;
     }
 }

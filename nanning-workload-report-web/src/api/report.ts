@@ -54,6 +54,11 @@ export const reportApi = {
     return request.post(`/reports/${id}/submit`)
   },
 
+  /** 批量提交填报数据 */
+  batchSubmit(ids: number[]): Promise<void> {
+    return request.post('/reports/batch-submit', { ids })
+  },
+
   /** 查询某人员某月某类型的填报记录 */
   getByEmployeePeriod(params: {
     periodId: number

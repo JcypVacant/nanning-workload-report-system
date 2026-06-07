@@ -74,10 +74,11 @@ public class AuditService {
      * 分页查询所有状态的填报记录（已提交 + 已审核 + 已退回）
      * 手动分页：先 COUNT 再 LIMIT
      */
-    public IPage<WorkReport> getAllReportsPage(Integer pageNum, Integer pageSize, Long periodId, String status) {
+    public IPage<WorkReport> getAllReportsPage(Integer pageNum, Integer pageSize, Long periodId, String status, Long areaId) {
         LambdaQueryWrapper<WorkReport> countWrapper = new LambdaQueryWrapper<WorkReport>()
                 .eq(periodId != null, WorkReport::getPeriodId, periodId)
-                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status);
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status)
+                .eq(areaId != null, WorkReport::getAreaId, areaId);
 
         if (UserContext.isWorkshopAdmin()) {
             countWrapper.eq(WorkReport::getWorkshopId, UserContext.getOrgId());
@@ -87,7 +88,8 @@ public class AuditService {
 
         LambdaQueryWrapper<WorkReport> dataWrapper = new LambdaQueryWrapper<WorkReport>()
                 .eq(periodId != null, WorkReport::getPeriodId, periodId)
-                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status);
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status)
+                .eq(areaId != null, WorkReport::getAreaId, areaId);
 
         if (UserContext.isWorkshopAdmin()) {
             dataWrapper.eq(WorkReport::getWorkshopId, UserContext.getOrgId());
@@ -124,6 +126,20 @@ public class AuditService {
             }
         }
         report.setItems(items);
+    }
+
+    /**
+     * 批量审核通过
+     */
+    @Transactional
+    public void batchApprove(List<Long> reportIds, String comment) {
+        if (reportIds == null || reportIds.isEmpty()) {
+            throw new RuntimeException("请选择要审核的记录");
+        }
+        for (Long id : reportIds) {
+            approve(id, comment);
+        }
+        log.info("批量审核通过: count={}", reportIds.size());
     }
 
     /**

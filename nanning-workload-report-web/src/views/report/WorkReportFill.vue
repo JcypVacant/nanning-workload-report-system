@@ -53,8 +53,41 @@
 
     <!-- Card 3: 已填报记录 -->
     <el-card style="margin-top:16px">
-      <template #header>已填报记录</template>
-      <el-table :data="reportList" border stripe v-loading="loadingReports">
+      <template #header>
+        <div class="card-header">
+          <span>已填报记录</span>
+          <el-button type="success" size="small" @click="handleBatchSubmit" :disabled="!canBatchSubmit">批量提交</el-button>
+        </div>
+      </template>
+      <!-- 筛选行 -->
+      <el-form :inline="true" class="search-bar">
+        <el-form-item label="日期">
+          <el-date-picker v-model="filterWorkDate" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width:150px" />
+        </el-form-item>
+        <el-form-item label="人员">
+          <el-input v-model="reportKeyword" placeholder="人员姓名" clearable style="width:140px" @keyup.enter="handleReportSearch" @clear="handleReportSearch" />
+        </el-form-item>
+        <el-form-item label="类别">
+          <el-select v-model="filterReportType" placeholder="全部" clearable style="width:100px">
+            <el-option label="工时" value="HOURS" />
+            <el-option label="工分" value="POINTS" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filterStatus" placeholder="全部" clearable style="width:110px">
+            <el-option label="草稿" value="草稿" />
+            <el-option label="已提交" value="已提交" />
+            <el-option label="已退回" value="已退回" />
+            <el-option label="已审核" value="已审核" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleReportSearch">搜索</el-button>
+          <el-button @click="handleReportReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+      <el-table :data="reportList" border stripe v-loading="loadingReports" @selection-change="onReportSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="employeeName" label="人员" width="100" />
         <el-table-column prop="workDate" label="日期" width="120" />
         <el-table-column prop="reportType" label="类别" width="80">
@@ -62,6 +95,12 @@
         </el-table-column>
         <el-table-column label="项目明细" min-width="200">
           <template #default="{ row }">{{ row.items?.map((i: any) => i.itemPath || i.itemName).join(', ') }}</template>
+        </el-table-column>
+        <el-table-column label="数值" width="100">
+          <template #default="{ row }">
+            <template v-if="row.reportType === 'HOURS'">{{ row.items?.reduce((s: number, i: any) => s + (i.numberValue || 0), 0) }} 分钟</template>
+            <template v-else>{{ row.items?.reduce((s: number, i: any) => s + (i.pointsValue || 0), 0) }} 工分</template>
+          </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
@@ -200,6 +239,16 @@ const reportPageNum = ref(1)
 const reportPageSize = ref(10)
 const reportTotal = ref(0)
 
+// 填报记录筛选
+const reportKeyword = ref('')
+const filterWorkDate = ref('')
+const filterReportType = ref('')
+const filterStatus = ref('')
+
+// 批量选择
+const selectedReports = ref<WorkReport[]>([])
+const canBatchSubmit = computed(() => selectedReports.value.length > 0 && selectedReports.value.every(r => r.status === '草稿' || r.status === '已退回'))
+
 const totalSumTime = computed(() => items.value.reduce((s, i) => s + (i.numberValue || 0), 0))
 const totalSumPoints = computed(() => items.value.reduce((s, i) => s + (i.pointsValue || 0), 0))
 
@@ -273,7 +322,11 @@ async function loadReportPage() {
     const res = await reportApi.getPage({
       pageNum: reportPageNum.value,
       pageSize: reportPageSize.value,
-      periodId: periodId.value
+      periodId: periodId.value,
+      keyword: reportKeyword.value || undefined,
+      workDate: filterWorkDate.value || undefined,
+      reportType: filterReportType.value || undefined,
+      status: filterStatus.value || undefined
     })
     reportList.value = res.records
     reportTotal.value = res.total
@@ -287,6 +340,36 @@ async function loadReportPage() {
 function handleReportSizeChange() {
   reportPageNum.value = 1
   loadReportPage()
+}
+
+function handleReportSearch() {
+  reportPageNum.value = 1
+  loadReportPage()
+}
+
+function handleReportReset() {
+  reportKeyword.value = ''
+  filterWorkDate.value = ''
+  filterReportType.value = ''
+  filterStatus.value = ''
+  reportPageNum.value = 1
+  loadReportPage()
+}
+
+function onReportSelectionChange(rows: WorkReport[]) {
+  selectedReports.value = rows
+}
+
+async function handleBatchSubmit() {
+  if (!canBatchSubmit.value) return
+  try {
+    await ElMessageBox.confirm(`确定要批量提交选中的 ${selectedReports.value.length} 条记录吗？`, '提示', { type: 'warning' })
+    const ids = selectedReports.value.map(r => r.id)
+    await reportApi.batchSubmit(ids)
+    ElMessage.success(`成功提交 ${ids.length} 条记录`)
+    selectedReports.value = []
+    loadReportPage()
+  } catch { /* 用户取消 */ }
 }
 
 /** 打开填报对话框（新增） */
@@ -428,6 +511,9 @@ async function deleteReport(row: WorkReport) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.search-bar {
+  margin-bottom: 8px;
 }
 .pagination-wrap {
   display: flex;

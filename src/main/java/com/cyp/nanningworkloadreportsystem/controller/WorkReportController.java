@@ -34,8 +34,10 @@ public class WorkReportController {
             @RequestParam(required = false) Long periodId,
             @RequestParam(required = false) Long employeeId,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String reportType) {
-        IPage<WorkReport> page = reportService.getPage(pageNum, pageSize, periodId, employeeId, status, reportType);
+            @RequestParam(required = false) String reportType,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) LocalDate workDate) {
+        IPage<WorkReport> page = reportService.getPage(pageNum, pageSize, periodId, employeeId, status, reportType, keyword, workDate);
         return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
     }
 
@@ -72,6 +74,13 @@ public class WorkReportController {
         return Result.ok();
     }
 
+    @Operation(summary = "批量提交填报数据")
+    @PostMapping("/batch-submit")
+    public Result<Void> batchSubmit(@RequestBody BatchSubmitRequest req) {
+        reportService.batchSubmit(req.getIds());
+        return Result.ok();
+    }
+
     @Data
     public static class CreateReportRequest {
         private Long periodId;
@@ -86,5 +95,10 @@ public class WorkReportController {
     public static class UpdateReportRequest {
         private List<WorkReportItem> items;
         private String remark;
+    }
+
+    @Data
+    public static class BatchSubmitRequest {
+        private List<Long> ids;
     }
 }

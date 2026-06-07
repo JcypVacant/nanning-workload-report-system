@@ -43,13 +43,32 @@ public class WorkReportService {
      * 使用手动分页（selectCount + selectList with LIMIT），因为 MP 3.5.15 移除了 PaginationInnerInterceptor
      */
     public IPage<WorkReport> getPage(Integer pageNum, Integer pageSize, Long periodId,
-                                      Long employeeId, String status, String reportType) {
+                                      Long employeeId, String status, String reportType,
+                                      String keyword, LocalDate workDate) {
+        // 如果有人员姓名关键字，先查匹配的 employee ID
+        List<Long> keywordEmpIds = null;
+        if (keyword != null && !keyword.isEmpty()) {
+            keywordEmpIds = employeeMapper.selectList(
+                    new LambdaQueryWrapper<Employee>().like(Employee::getName, keyword)
+            ).stream().map(Employee::getId).toList();
+            if (keywordEmpIds.isEmpty()) {
+                Page<WorkReport> empty = new Page<>(pageNum, pageSize);
+                empty.setTotal(0L);
+                empty.setRecords(List.of());
+                return empty;
+            }
+        }
+
         // 构建公用条件
         LambdaQueryWrapper<WorkReport> countWrapper = new LambdaQueryWrapper<WorkReport>()
                 .eq(periodId != null, WorkReport::getPeriodId, periodId)
                 .eq(employeeId != null, WorkReport::getEmployeeId, employeeId)
-                .eq(status != null, WorkReport::getStatus, status)
-                .eq(reportType != null, WorkReport::getReportType, reportType);
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status)
+                .eq(reportType != null && !reportType.isEmpty(), WorkReport::getReportType, reportType)
+                .eq(workDate != null, WorkReport::getWorkDate, workDate);
+        if (keywordEmpIds != null) {
+            countWrapper.in(WorkReport::getEmployeeId, keywordEmpIds);
+        }
 
         // 数据范围限制
         applyDataScope(countWrapper);
@@ -61,10 +80,14 @@ public class WorkReportService {
         LambdaQueryWrapper<WorkReport> dataWrapper = new LambdaQueryWrapper<WorkReport>()
                 .eq(periodId != null, WorkReport::getPeriodId, periodId)
                 .eq(employeeId != null, WorkReport::getEmployeeId, employeeId)
-                .eq(status != null, WorkReport::getStatus, status)
-                .eq(reportType != null, WorkReport::getReportType, reportType)
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status)
+                .eq(reportType != null && !reportType.isEmpty(), WorkReport::getReportType, reportType)
+                .eq(workDate != null, WorkReport::getWorkDate, workDate)
                 .orderByDesc(WorkReport::getWorkDate, WorkReport::getCreatedTime)
                 .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+        if (keywordEmpIds != null) {
+            dataWrapper.in(WorkReport::getEmployeeId, keywordEmpIds);
+        }
 
         applyDataScope(dataWrapper);
 
@@ -294,5 +317,19 @@ public class WorkReportService {
 
         log.info("提交填报数据: reportId={}", reportId);
         logService.record("工区填报", "SUBMIT", String.valueOf(reportId), "提交填报数据");
+    }
+
+    /**
+     * 批量提交填报数据（草稿/已退回 -> 已提交）
+     */
+    @Transactional
+    public void batchSubmit(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new RuntimeException("请选择要提交的记录");
+        }
+        for (Long id : ids) {
+            submit(id);
+        }
+        log.info("批量提交填报数据: count={}", ids.size());
     }
 }
