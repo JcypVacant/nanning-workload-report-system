@@ -172,12 +172,12 @@
         </el-table-column>
         <el-table-column v-if="reportType === 'HOURS'" label="工时(分钟)" width="150">
           <template #default="{ row }">
-            <el-input-number v-model="row.numberValue" :min="0" :precision="1" style="width:130px" />
+            <el-input-number v-model="row.numberValue" :min="0" :precision="0" style="width:130px" />
           </template>
         </el-table-column>
         <el-table-column v-if="reportType === 'POINTS'" label="工分" width="130">
           <template #default="{ row }">
-            <el-input-number v-model="row.pointsValue" :min="0" :precision="1" style="width:110px" />
+            <el-input-number v-model="row.pointsValue" :min="0" :precision="0" style="width:110px" />
           </template>
         </el-table-column>
         <el-table-column label="备注" width="180">

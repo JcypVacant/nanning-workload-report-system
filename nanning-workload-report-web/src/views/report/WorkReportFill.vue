@@ -86,7 +86,7 @@
           <el-button @click="handleReportReset">重置</el-button>
         </el-form-item>
       </el-form>
-      <el-table :data="reportList" border stripe v-loading="loadingReports" @selection-change="onReportSelectionChange">
+      <el-table :data="displayReportList" border stripe v-loading="loadingReports" @selection-change="onReportSelectionChange">
         <el-table-column type="selection" width="45" />
         <el-table-column prop="employeeName" label="人员" width="100" />
         <el-table-column prop="workDate" label="日期" width="120" />
@@ -94,12 +94,12 @@
           <template #default="{ row }">{{ row.reportType === 'HOURS' ? '工时' : '工分' }}</template>
         </el-table-column>
         <el-table-column label="项目明细" min-width="200">
-          <template #default="{ row }">{{ row.items?.map((i: any) => i.itemPath || i.itemName).join(', ') }}</template>
+          <template #default="{ row }">{{ row._itemPath }}</template>
         </el-table-column>
         <el-table-column label="数值" width="100">
           <template #default="{ row }">
-            <template v-if="row.reportType === 'HOURS'">{{ row.items?.reduce((s: number, i: any) => s + (i.numberValue || 0), 0) }} 分钟</template>
-            <template v-else>{{ row.items?.reduce((s: number, i: any) => s + (i.pointsValue || 0), 0) }} 工分</template>
+            <template v-if="row.reportType === 'HOURS'">{{ row._numberValue }} 分钟</template>
+            <template v-else>{{ row._pointsValue }} 工分</template>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="90">
@@ -115,16 +115,16 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="periodId && reportList.length === 0 && !loadingReports" description="暂无填报记录" />
+      <el-empty v-if="periodId && flatReportList.length === 0 && !loadingReports" description="暂无填报记录" />
       <div class="pagination-wrap">
         <el-pagination
           v-model:current-page="reportPageNum"
           v-model:page-size="reportPageSize"
           :page-sizes="[10, 20, 50]"
-          :total="reportTotal"
+          :total="reportTotalComputed"
           layout="total, sizes, prev, pager, next, jumper"
-          @current-change="loadReportPage"
-          @size-change="handleReportSizeChange"
+          @current-change="(p: number) => reportPageNum = p"
+          @size-change="(s: number) => { reportPageSize = s; reportPageNum = 1 }"
         />
       </div>
     </el-card>
@@ -166,12 +166,12 @@
         </el-table-column>
         <el-table-column v-if="reportType === 'HOURS'" label="工时(分钟)" width="150">
           <template #default="{ row }">
-            <el-input-number v-model="row.numberValue" :min="0" :precision="1" style="width:130px" />
+            <el-input-number v-model="row.numberValue" :min="0" :precision="0" style="width:130px" />
           </template>
         </el-table-column>
         <el-table-column v-if="reportType === 'POINTS'" label="工分" width="130">
           <template #default="{ row }">
-            <el-input-number v-model="row.pointsValue" :min="0" :precision="1" style="width:110px" />
+            <el-input-number v-model="row.pointsValue" :min="0" :precision="0" style="width:110px" />
           </template>
         </el-table-column>
         <el-table-column label="备注" width="180">
@@ -234,10 +234,9 @@ const empPageSize = ref(10)
 const empTotal = ref(0)
 const empKeyword = ref('')
 
-// 填报记录表格分页
+// 填报记录表格分页（客户端分页，加载全部报表后按明细行切分）
 const reportPageNum = ref(1)
 const reportPageSize = ref(10)
-const reportTotal = ref(0)
 
 // 填报记录筛选
 const reportKeyword = ref('')
@@ -248,6 +247,33 @@ const filterStatus = ref('')
 // 批量选择
 const selectedReports = ref<WorkReport[]>([])
 const canBatchSubmit = computed(() => selectedReports.value.length > 0 && selectedReports.value.every(r => r.status === '草稿' || r.status === '已退回'))
+
+/** 将填报记录按明细行展开，每条明细一行 */
+const flatReportList = computed(() => {
+  const result: any[] = []
+  for (const report of reportList.value) {
+    const items = report.items || []
+    if (items.length === 0) {
+      result.push({ ...report, _itemPath: '', _numberValue: 0, _pointsValue: 0 })
+    } else {
+      for (const item of items) {
+        result.push({
+          ...report,
+          _itemPath: item.itemPath || item.itemName || '',
+          _numberValue: item.numberValue || 0,
+          _pointsValue: item.pointsValue || 0
+        })
+      }
+    }
+  }
+  return result
+})
+
+/** 客户端分页：从展平列表中截取当前页 */
+const displayReportList = computed(() => {
+  const start = (reportPageNum.value - 1) * reportPageSize.value
+  return flatReportList.value.slice(start, start + reportPageSize.value)
+})
 
 const totalSumTime = computed(() => items.value.reduce((s, i) => s + (i.numberValue || 0), 0))
 const totalSumPoints = computed(() => items.value.reduce((s, i) => s + (i.pointsValue || 0), 0))
@@ -314,14 +340,14 @@ function onPeriodChange() {
   loadReportPage()
 }
 
-/** 加载填报记录分页数据 */
+/** 加载填报记录（一次加载该月份全部报表，客户端分页） */
 async function loadReportPage() {
   if (!periodId.value) return
   loadingReports.value = true
   try {
     const res = await reportApi.getPage({
-      pageNum: reportPageNum.value,
-      pageSize: reportPageSize.value,
+      pageNum: 1,
+      pageSize: 500,
       periodId: periodId.value,
       keyword: reportKeyword.value || undefined,
       workDate: filterWorkDate.value || undefined,
@@ -329,7 +355,6 @@ async function loadReportPage() {
       status: filterStatus.value || undefined
     })
     reportList.value = res.records
-    reportTotal.value = res.total
   } catch (e: any) {
     ElMessage.error(e.message || '加载记录失败')
   } finally {
@@ -337,10 +362,8 @@ async function loadReportPage() {
   }
 }
 
-function handleReportSizeChange() {
-  reportPageNum.value = 1
-  loadReportPage()
-}
+/** 报表总数 = 展平后的明细行数 */
+const reportTotalComputed = computed(() => flatReportList.value.length)
 
 function handleReportSearch() {
   reportPageNum.value = 1
@@ -357,7 +380,13 @@ function handleReportReset() {
 }
 
 function onReportSelectionChange(rows: WorkReport[]) {
-  selectedReports.value = rows
+  // 扁平化后同一报表的多条明细可能同时选中，按 id 去重
+  const seen = new Set<number>()
+  selectedReports.value = rows.filter(r => {
+    if (seen.has(r.id)) return false
+    seen.add(r.id)
+    return true
+  })
 }
 
 async function handleBatchSubmit() {
