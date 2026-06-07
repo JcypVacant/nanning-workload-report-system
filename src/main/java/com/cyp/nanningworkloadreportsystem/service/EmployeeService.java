@@ -69,6 +69,18 @@ public class EmployeeService {
 
         List<Employee> records = employeeMapper.selectList(dataWrapper);
 
+        // 填充关联字段（工区名称、车间名称）
+        for (Employee emp : records) {
+            if (emp.getAreaId() != null) {
+                OrgUnit area = orgUnitMapper.selectById(emp.getAreaId());
+                if (area != null) emp.setAreaName(area.getOrgName());
+            }
+            if (emp.getWorkshopId() != null) {
+                OrgUnit workshop = orgUnitMapper.selectById(emp.getWorkshopId());
+                if (workshop != null) emp.setWorkshopName(workshop.getOrgName());
+            }
+        }
+
         Page<Employee> page = new Page<>(pageNum, pageSize);
         page.setTotal(total);
         page.setRecords(records);

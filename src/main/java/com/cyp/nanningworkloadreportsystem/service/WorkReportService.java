@@ -40,26 +40,43 @@ public class WorkReportService {
     /**
      * 分页查询填报记录
      * 自动根据当前用户角色限制数据范围
+     * 使用手动分页（selectCount + selectList with LIMIT），因为 MP 3.5.15 移除了 PaginationInnerInterceptor
      */
     public IPage<WorkReport> getPage(Integer pageNum, Integer pageSize, Long periodId,
                                       Long employeeId, String status, String reportType) {
-        Page<WorkReport> page = new Page<>(pageNum, pageSize);
-        LambdaQueryWrapper<WorkReport> wrapper = new LambdaQueryWrapper<WorkReport>()
+        // 构建公用条件
+        LambdaQueryWrapper<WorkReport> countWrapper = new LambdaQueryWrapper<WorkReport>()
                 .eq(periodId != null, WorkReport::getPeriodId, periodId)
                 .eq(employeeId != null, WorkReport::getEmployeeId, employeeId)
                 .eq(status != null, WorkReport::getStatus, status)
                 .eq(reportType != null, WorkReport::getReportType, reportType);
 
         // 数据范围限制
-        applyDataScope(wrapper);
+        applyDataScope(countWrapper);
 
-        wrapper.orderByDesc(WorkReport::getWorkDate, WorkReport::getCreatedTime);
-        IPage<WorkReport> result = reportMapper.selectPage(page, wrapper);
+        // 1. 查总数
+        Long total = reportMapper.selectCount(countWrapper);
+
+        // 2. 查当前页
+        LambdaQueryWrapper<WorkReport> dataWrapper = new LambdaQueryWrapper<WorkReport>()
+                .eq(periodId != null, WorkReport::getPeriodId, periodId)
+                .eq(employeeId != null, WorkReport::getEmployeeId, employeeId)
+                .eq(status != null, WorkReport::getStatus, status)
+                .eq(reportType != null, WorkReport::getReportType, reportType)
+                .orderByDesc(WorkReport::getWorkDate, WorkReport::getCreatedTime)
+                .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+
+        applyDataScope(dataWrapper);
+
+        List<WorkReport> records = reportMapper.selectList(dataWrapper);
 
         // 加载关联信息
-        result.getRecords().forEach(this::enrichReportInfo);
+        records.forEach(this::enrichReportInfo);
 
-        return result;
+        Page<WorkReport> page = new Page<>(pageNum, pageSize);
+        page.setTotal(total);
+        page.setRecords(records);
+        return page;
     }
 
     /**
