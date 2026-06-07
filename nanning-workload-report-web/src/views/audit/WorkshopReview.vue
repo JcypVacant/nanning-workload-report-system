@@ -3,6 +3,12 @@
   <div>
     <h2>车间审核</h2>
     <el-card style="margin-top:16px">
+      <template #header>
+        <div class="card-header">
+          <span>审核列表</span>
+          <el-button type="warning" size="small" @click="handleSubmitToSection">提交到段级</el-button>
+        </div>
+      </template>
       <!-- 筛选栏 -->
       <el-form :inline="true" class="search-bar">
         <el-form-item label="月份">
@@ -21,6 +27,7 @@
             <el-option label="待审核" value="已提交" />
             <el-option label="已审核" value="已审核" />
             <el-option label="已退回" value="已退回" />
+            <el-option label="已锁定" value="已锁定" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -122,7 +129,7 @@ const selectedReports = ref<WorkReport[]>([])
 const canBatchApprove = computed(() => selectedReports.value.length > 0 && selectedReports.value.every(r => r.status === '已提交'))
 
 function statusType(s: string) {
-  const m: Record<string, string> = { '已提交': 'warning', '已审核': 'success', '已退回': 'danger' }
+  const m: Record<string, string> = { '已提交': 'warning', '已审核': 'success', '已退回': 'danger', '已锁定': 'info' }
   return m[s] || 'info'
 }
 
@@ -222,6 +229,16 @@ function showReturn(row: WorkReport) {
   returnVisible.value = true
 }
 
+async function handleSubmitToSection() {
+  if (!periodId.value) { ElMessage.warning('请先选择月份'); return }
+  try {
+    await ElMessageBox.confirm('确定要将本车间该月份所有已审核的记录提交到段级吗？提交后将无法修改。', '确认提交', { type: 'warning' })
+    await auditApi.submitToSection(periodId.value)
+    ElMessage.success('已提交到段级')
+    loadData()
+  } catch { /* 用户取消 */ }
+}
+
 async function handleReturn() {
   if (!returnComment.value.trim()) { ElMessage.warning('请填写退回原因'); return }
   saving.value = true
@@ -239,6 +256,7 @@ async function handleReturn() {
 </script>
 
 <style scoped>
+.card-header { display: flex; justify-content: space-between; align-items: center }
 .search-bar { margin-bottom: 8px }
 .pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px }
 </style>

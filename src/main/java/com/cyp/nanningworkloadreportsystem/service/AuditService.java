@@ -28,6 +28,7 @@ public class AuditService {
     private final WorkItemMapper workItemMapper;
     private final EmployeeMapper employeeMapper;
     private final OrgUnitMapper orgUnitMapper;
+    private final MonthlyPeriodMapper periodMapper;
     private final OperationLogService logService;
 
     /**
@@ -210,6 +211,57 @@ public class AuditService {
         audit.setComment(comment);
         audit.setOperatorId(UserContext.getUserId());
         auditRecordMapper.insert(audit);
+    }
+
+    /**
+     * 提交到段级：将本车间该月份所有"已审核"记录锁定，并更新月度期间状态
+     */
+    @Transactional
+    public void submitToSection(Long periodId) {
+        Long workshopId = UserContext.getOrgId();
+
+        // 1. 检查是否还有待审核的记录
+        Long pendingCount = reportMapper.selectCount(
+                new LambdaQueryWrapper<WorkReport>()
+                        .eq(WorkReport::getPeriodId, periodId)
+                        .eq(WorkReport::getWorkshopId, workshopId)
+                        .eq(WorkReport::getStatus, "已提交"));
+        if (pendingCount > 0) {
+            throw new RuntimeException("还有 " + pendingCount + " 条待审核记录，请先完成所有审核再提交");
+        }
+
+        // 2. 检查是否有已审核的记录
+        Long approvedCount = reportMapper.selectCount(
+                new LambdaQueryWrapper<WorkReport>()
+                        .eq(WorkReport::getPeriodId, periodId)
+                        .eq(WorkReport::getWorkshopId, workshopId)
+                        .eq(WorkReport::getStatus, "已审核"));
+        if (approvedCount == 0) {
+            throw new RuntimeException("没有已审核的记录可提交");
+        }
+
+        // 3. 将所有"已审核"记录改为"已锁定"
+        List<WorkReport> approvedReports = reportMapper.selectList(
+                new LambdaQueryWrapper<WorkReport>()
+                        .eq(WorkReport::getPeriodId, periodId)
+                        .eq(WorkReport::getWorkshopId, workshopId)
+                        .eq(WorkReport::getStatus, "已审核"));
+        for (WorkReport report : approvedReports) {
+            report.setStatus("已锁定");
+            report.setUpdatedBy(UserContext.getUserId());
+            reportMapper.updateById(report);
+        }
+
+        // 4. 更新月度期间状态
+        MonthlyPeriod period = periodMapper.selectById(periodId);
+        if (period != null) {
+            period.setStatus("段级汇总中");
+            periodMapper.updateById(period);
+        }
+
+        log.info("提交到段级: periodId={}, workshopId={}, lockedCount={}", periodId, workshopId, approvedReports.size());
+        logService.record("车间审核", "SUBMIT_TO_SECTION", String.valueOf(periodId),
+                "提交" + approvedReports.size() + "条记录到段级");
     }
 
     /**

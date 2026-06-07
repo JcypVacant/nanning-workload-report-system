@@ -75,6 +75,13 @@ public class AuditController {
         return Result.ok();
     }
 
+    @Operation(summary = "提交到段级审核")
+    @PostMapping("/submit-to-section/{periodId}")
+    public Result<Void> submitToSection(@PathVariable Long periodId) {
+        auditService.submitToSection(periodId);
+        return Result.ok();
+    }
+
     @Operation(summary = "查询审核记录")
     @GetMapping("/records")
     public Result<PageResult<AuditRecord>> getRecords(
