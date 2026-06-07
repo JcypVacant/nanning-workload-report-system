@@ -60,6 +60,33 @@
     <!-- Card 3: 已填报记录 -->
     <el-card style="margin-top:16px">
       <template #header>已填报记录</template>
+      <!-- 筛选行 -->
+      <el-form :inline="true" class="search-bar">
+        <el-form-item label="日期">
+          <el-date-picker v-model="filterWorkDate" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width:150px" />
+        </el-form-item>
+        <el-form-item label="人员">
+          <el-input v-model="reportKeyword" placeholder="人员姓名" clearable style="width:140px" @keyup.enter="handleReportSearch" @clear="handleReportSearch" />
+        </el-form-item>
+        <el-form-item label="类别">
+          <el-select v-model="filterReportType" placeholder="全部" clearable style="width:100px">
+            <el-option label="工时" value="HOURS" />
+            <el-option label="工分" value="POINTS" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filterStatus" placeholder="全部" clearable style="width:110px">
+            <el-option label="草稿" value="草稿" />
+            <el-option label="已提交" value="已提交" />
+            <el-option label="已退回" value="已退回" />
+            <el-option label="已审核" value="已审核" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleReportSearch">搜索</el-button>
+          <el-button @click="handleReportReset">重置</el-button>
+        </el-form-item>
+      </el-form>
       <el-table :data="reportList" border stripe v-loading="loadingReports">
         <el-table-column prop="employeeName" label="人员" width="100" />
         <el-table-column prop="workDate" label="日期" width="120" />
@@ -209,6 +236,12 @@ const reportPageNum = ref(1)
 const reportPageSize = ref(10)
 const reportTotal = ref(0)
 
+// 填报记录筛选
+const reportKeyword = ref('')
+const filterWorkDate = ref('')
+const filterReportType = ref('')
+const filterStatus = ref('')
+
 const totalSumTime = computed(() => items.value.reduce((s, i) => s + (i.numberValue || 0), 0))
 const totalSumPoints = computed(() => items.value.reduce((s, i) => s + (i.pointsValue || 0), 0))
 
@@ -302,7 +335,11 @@ async function loadReportPage() {
     const res = await reportApi.getPage({
       pageNum: reportPageNum.value,
       pageSize: reportPageSize.value,
-      periodId: periodId.value
+      periodId: periodId.value,
+      keyword: reportKeyword.value || undefined,
+      workDate: filterWorkDate.value || undefined,
+      reportType: filterReportType.value || undefined,
+      status: filterStatus.value || undefined
     })
     reportList.value = res.records
     reportTotal.value = res.total
@@ -314,6 +351,20 @@ async function loadReportPage() {
 }
 
 function handleReportSizeChange() {
+  reportPageNum.value = 1
+  loadReportPage()
+}
+
+function handleReportSearch() {
+  reportPageNum.value = 1
+  loadReportPage()
+}
+
+function handleReportReset() {
+  reportKeyword.value = ''
+  filterWorkDate.value = ''
+  filterReportType.value = ''
+  filterStatus.value = ''
   reportPageNum.value = 1
   loadReportPage()
 }
@@ -456,6 +507,9 @@ async function deleteReport(row: WorkReport) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.search-bar {
+  margin-bottom: 8px;
 }
 .pagination-wrap {
   display: flex;
