@@ -96,7 +96,6 @@ public class GlobalExceptionHandler {
      * 对于非预期的运行时异常，记录完整堆栈日志
      */
     @ExceptionHandler(RuntimeException.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleRuntimeException(RuntimeException e) {
         // 如果是业务校验抛出的异常（如：密码错误、账号不存在等），直接返回消息
         // 这类异常的 message 是面向用户的友好提示

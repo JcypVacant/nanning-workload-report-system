@@ -46,21 +46,29 @@ public class SysUserService {
      * @throws RuntimeException 账号不存在、已禁用或密码错误
      */
     public String login(String username, String password) {
-        // 1. 查询用户
+        // 1. 基本格式校验
+        if (username == null || username.length() < 5 || username.length() > 20) {
+            throw new RuntimeException("账号或密码错误");
+        }
+        if (password == null || password.length() < 6 || password.length() > 20) {
+            throw new RuntimeException("账号或密码错误");
+        }
+
+        // 2. 查询用户
         SysUser user = sysUserMapper.selectOne(
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
         if (user == null) {
-            throw new RuntimeException("账号不存在");
+            throw new RuntimeException("账号或密码错误");
         }
 
-        // 2. 检查账号是否启用
+        // 3. 检查账号是否启用
         if (user.getEnabled() != null && user.getEnabled() == 0) {
             throw new RuntimeException("账号已被禁用，请联系管理员");
         }
 
-        // 3. 验证密码（BCrypt）
+        // 4. 验证密码（BCrypt）
         if (!BCrypt.checkpw(password, user.getPassword())) {
-            throw new RuntimeException("密码错误");
+            throw new RuntimeException("账号或密码错误");
         }
 
         // 4. 执行 Sa-Token 登录
@@ -128,6 +136,11 @@ public class SysUserService {
             throw new RuntimeException("用户不存在");
         }
 
+        // 新密码长度校验
+        if (newPassword == null || newPassword.length() < 6 || newPassword.length() > 20) {
+            throw new RuntimeException("新密码长度必须为6-20个字符");
+        }
+
         // 验证旧密码
         if (!BCrypt.checkpw(oldPassword, user.getPassword())) {
             throw new RuntimeException("原密码错误");
@@ -191,9 +204,14 @@ public class SysUserService {
      */
     @Transactional
     public SysUser createUser(SysUser user, String roleCode, Long orgId) {
+        // 校验账号长度
+        String username = user.getUsername();
+        if (username == null || username.length() < 5 || username.length() > 20) {
+            throw new RuntimeException("账号长度必须为5-20个字符");
+        }
         // 检查用户名是否已存在
         Long count = sysUserMapper.selectCount(
-                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, user.getUsername()));
+                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
         if (count > 0) {
             throw new RuntimeException("用户名已存在");
         }

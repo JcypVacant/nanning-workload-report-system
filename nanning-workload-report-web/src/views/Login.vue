@@ -106,11 +106,12 @@ onMounted(() => {
 /** 表单验证规则 */
 const rules: FormRules = {
   username: [
-    { required: true, message: '请输入账号', trigger: 'blur' }
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { min: 5, max: 20, message: '账号长度为5-20个字符', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 4, max: 20, message: '密码长度在4-20个字符之间', trigger: 'blur' }
+    { min: 6, max: 20, message: '密码长度为6-20个字符', trigger: 'blur' }
   ]
 }
 
@@ -141,8 +142,8 @@ async function handleLogin() {
     ElMessage.success('登录成功')
     // 跳转到首页看板
     router.push('/dashboard')
-  } catch (error: any) {
-    ElMessage.error(error.message || '登录失败，请检查账号和密码')
+  } catch {
+    // axios 拦截器已统一显示错误消息，此处无需重复提示
   } finally {
     loading.value = false
   }

@@ -69,7 +69,8 @@
     <el-dialog :title="editingId ? '编辑账号' : '新增账号'" v-model="dialogVisible" width="520px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="登录账号">
-          <el-input v-model="form.username" :disabled="!!editingId" placeholder="登录账号名（创建后不可修改）" />
+          <el-input v-model="form.username" :disabled="!!editingId" placeholder="5-20个字符" maxlength="20" show-word-limit />
+          <span v-if="!editingId" style="font-size:12px;color:#999">默认密码为 123456（6位），首次登录后需修改</span>
         </el-form-item>
         <el-form-item label="真实姓名">
           <el-input v-model="form.realName" placeholder="真实姓名" />
@@ -231,6 +232,10 @@ function showEdit(row: SysUser) {
 }
 
 async function handleSave() {
+  if (!editingId.value) {
+    const u = form.value.username
+    if (!u || u.length < 5 || u.length > 20) { ElMessage.warning('账号长度必须为5-20个字符'); return }
+  }
   saving.value = true
   try {
     if (editingId.value) {
