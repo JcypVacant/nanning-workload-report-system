@@ -168,18 +168,7 @@ public class WorkReportService {
     @Transactional
     public WorkReport create(Long periodId, Long employeeId, LocalDate workDate,
                               String reportType, List<WorkReportItem> items, String remark) {
-        // 1. 检查唯一性约束
-        Long exists = reportMapper.selectCount(
-                new LambdaQueryWrapper<WorkReport>()
-                        .eq(WorkReport::getPeriodId, periodId)
-                        .eq(WorkReport::getEmployeeId, employeeId)
-                        .eq(WorkReport::getWorkDate, workDate)
-                        .eq(WorkReport::getReportType, reportType));
-        if (exists > 0) {
-            throw new RuntimeException("该人员在该日期已存在" + ("HOURS".equals(reportType) ? "工时" : "工分") + "填报记录，请勿重复创建");
-        }
-
-        // 2. 获取人员信息以确定车间和工区
+        // 获取人员信息以确定车间和工区
         Employee emp = employeeMapper.selectById(employeeId);
         if (emp == null) throw new RuntimeException("人员不存在");
 
