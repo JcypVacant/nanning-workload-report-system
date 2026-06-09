@@ -29,6 +29,7 @@ public class AuditService {
     private final EmployeeMapper employeeMapper;
     private final OrgUnitMapper orgUnitMapper;
     private final MonthlyPeriodMapper periodMapper;
+    private final SysUserMapper sysUserMapper;
     private final OperationLogService logService;
 
     /**
@@ -268,10 +269,52 @@ public class AuditService {
      * 查询审核记录
      */
     public IPage<AuditRecord> getAuditRecords(Integer pageNum, Integer pageSize, Long periodId) {
+        // 构建条件
+        LambdaQueryWrapper<AuditRecord> countWrapper = new LambdaQueryWrapper<AuditRecord>()
+                .eq(periodId != null, AuditRecord::getPeriodId, periodId);
+
+        // 数据范围：车间管理员只看本车间的审核记录
+        if (UserContext.isWorkshopAdmin()) {
+            // audit_record.orgId 是工区ID，需要筛选属于本车间的工区
+            List<OrgUnit> areas = orgUnitMapper.selectList(
+                    new LambdaQueryWrapper<OrgUnit>().eq(OrgUnit::getParentId, UserContext.getOrgId()));
+            List<Long> areaIds = areas.stream().map(OrgUnit::getId).toList();
+            if (areaIds.isEmpty()) {
+                Page<AuditRecord> empty = new Page<>(pageNum, pageSize);
+                empty.setTotal(0L);
+                empty.setRecords(List.of());
+                return empty;
+            }
+            countWrapper.in(AuditRecord::getOrgId, areaIds);
+        }
+
+        Long total = auditRecordMapper.selectCount(countWrapper);
+
+        LambdaQueryWrapper<AuditRecord> dataWrapper = new LambdaQueryWrapper<AuditRecord>()
+                .eq(periodId != null, AuditRecord::getPeriodId, periodId);
+        if (UserContext.isWorkshopAdmin()) {
+            List<OrgUnit> areas = orgUnitMapper.selectList(
+                    new LambdaQueryWrapper<OrgUnit>().eq(OrgUnit::getParentId, UserContext.getOrgId()));
+            List<Long> areaIds = areas.stream().map(OrgUnit::getId).toList();
+            if (!areaIds.isEmpty()) {
+                dataWrapper.in(AuditRecord::getOrgId, areaIds);
+            }
+        }
+        dataWrapper.orderByDesc(AuditRecord::getOperateTime)
+                .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+        List<AuditRecord> records = auditRecordMapper.selectList(dataWrapper);
+
+        // 填充操作人姓名
+        for (AuditRecord record : records) {
+            if (record.getOperatorId() != null) {
+                SysUser user = sysUserMapper.selectById(record.getOperatorId());
+                if (user != null) record.setOperatorName(user.getRealName());
+            }
+        }
+
         Page<AuditRecord> page = new Page<>(pageNum, pageSize);
-        LambdaQueryWrapper<AuditRecord> wrapper = new LambdaQueryWrapper<AuditRecord>()
-                .eq(periodId != null, AuditRecord::getPeriodId, periodId)
-                .orderByDesc(AuditRecord::getOperateTime);
-        return auditRecordMapper.selectPage(page, wrapper);
+        page.setTotal(total);
+        page.setRecords(records);
+        return page;
     }
 }
