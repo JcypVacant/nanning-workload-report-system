@@ -33,8 +33,9 @@ public class EmployeeController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long workshopId,
             @RequestParam(required = false) Long areaId,
-            @RequestParam(required = false) String status) {
-        IPage<Employee> page = employeeService.getPage(pageNum, pageSize, keyword, workshopId, areaId, status);
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean workshopLevel) {
+        IPage<Employee> page = employeeService.getPage(pageNum, pageSize, keyword, workshopId, areaId, status, workshopLevel);
         return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
     }
 

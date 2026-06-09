@@ -19,8 +19,13 @@
           <el-input v-model="keyword" placeholder="搜索人员姓名" clearable @keyup.enter="handleSearch" />
         </el-form-item>
         <el-form-item label="车间">
-          <el-select v-model="filterWorkshopId" placeholder="全部车间" clearable style="width:180px">
+          <el-select v-model="filterWorkshopId" placeholder="全部车间" clearable style="width:180px" :disabled="userStore.isWorkshopAdmin" @change="onFilterWorkshopChange">
             <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="工区" v-if="filterWorkshopId">
+          <el-select v-model="filterAreaId" placeholder="全部工区" clearable style="width:150px" @change="handleSearch">
+            <el-option v-for="a in filterAreas" :key="a.id" :label="a.orgName" :value="a.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -132,7 +137,7 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="所属车间" required>
-              <el-select v-model="form.workshopId" placeholder="选择车间" style="width:100%" filterable>
+              <el-select v-model="form.workshopId" placeholder="选择车间" style="width:100%" filterable :disabled="userStore.isWorkshopAdmin">
                 <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
               </el-select>
             </el-form-item>
@@ -140,7 +145,7 @@
           <el-col :span="12">
             <el-form-item label="所属工区" required>
               <el-select v-model="form.areaId" placeholder="选择工区" style="width:100%" filterable>
-                <el-option v-for="a in areas" :key="a.id" :label="a.orgName" :value="a.id" />
+                <el-option v-for="a in dialogAreas" :key="a.id" :label="a.orgName" :value="a.id" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -183,13 +188,13 @@
         </el-form-item>
         <el-divider />
         <el-form-item label="调往车间" required>
-          <el-select v-model="transferForm.afterWorkshopId" placeholder="选择车间" style="width:100%" filterable>
+          <el-select v-model="transferForm.afterWorkshopId" placeholder="选择车间" style="width:100%" filterable :disabled="userStore.isWorkshopAdmin">
             <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="调往工区" required>
           <el-select v-model="transferForm.afterAreaId" placeholder="选择工区" style="width:100%" filterable>
-            <el-option v-for="a in areas" :key="a.id" :label="a.orgName" :value="a.id" />
+            <el-option v-for="a in transferAreas" :key="a.id" :label="a.orgName" :value="a.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="调往班组">
@@ -212,18 +217,24 @@
  * 人员管理页面逻辑
  * 支持分页查询（每页10条）、按姓名/车间/状态搜索、新增、编辑、调动、启停
  */
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { employeeApi } from '@/api/employee'
 import { orgApi } from '@/api/org'
+import { useUserStore } from '@/store/user'
 import type { Employee, OrgUnit } from '@/types'
 
 // ==================== 搜索条件 ====================
+const userStore = useUserStore()
 const keyword = ref('')
 const filterWorkshopId = ref<number | null>(null)
+const filterAreaId = ref<number | null>(null)
 const filterStatus = ref('')
 const workshops = ref<OrgUnit[]>([])
 const areas = ref<OrgUnit[]>([])
+const filterAreas = ref<OrgUnit[]>([])
+const dialogAreas = ref<OrgUnit[]>([])
+const transferAreas = ref<OrgUnit[]>([])
 
 // ==================== 表格与分页状态 ====================
 const tableData = ref<Employee[]>([])
@@ -254,11 +265,28 @@ const transferForm = ref({
   transferReason: ''
 })
 
+/** 车间变更时加载下属工区 */
+async function onFilterWorkshopChange(val: number | null) {
+  filterAreaId.value = null
+  if (val) {
+    try { filterAreas.value = await orgApi.getAreasByWorkshopId(val) } catch { filterAreas.value = [] }
+  } else {
+    filterAreas.value = []
+  }
+  handleSearch()
+}
+
 onMounted(async () => {
   try {
     workshops.value = await orgApi.getWorkshops()
     areas.value = await orgApi.getAllAreas()
   } catch { /* 忽略 */ }
+  // 车间管理员只能看本车间
+  if (userStore.isWorkshopAdmin && userStore.orgId) {
+    filterWorkshopId.value = userStore.orgId
+    // 加载本车间下属工区
+    try { filterAreas.value = await orgApi.getAreasByWorkshopId(userStore.orgId) } catch { /* 忽略 */ }
+  }
   loadData()
 })
 
@@ -266,13 +294,17 @@ onMounted(async () => {
 async function loadData() {
   loading.value = true
   try {
-    const res = await employeeApi.getPage({
+    const params: Record<string, any> = {
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       keyword: keyword.value,
       workshopId: filterWorkshopId.value,
       status: filterStatus.value || undefined
-    })
+    }
+    if (filterAreaId.value) {
+      params.areaId = filterAreaId.value
+    }
+    const res = await employeeApi.getPage(params)
     tableData.value = res.records
     total.value = res.total
   } catch (e: any) {
@@ -286,7 +318,9 @@ function handleSearch() { pageNum.value = 1; loadData() }
 
 function handleReset() {
   keyword.value = ''
-  filterWorkshopId.value = null
+  filterWorkshopId.value = userStore.isWorkshopAdmin ? userStore.orgId : null
+  filterAreaId.value = null
+  filterAreas.value = []
   filterStatus.value = ''
   pageNum.value = 1
   loadData()
@@ -296,21 +330,31 @@ function handleSizeChange() { pageNum.value = 1; loadData() }
 
 // ==================== 新增/编辑 ====================
 
-function showCreate() {
+async function showCreate() {
   editingId.value = null
+  const wsId = userStore.isWorkshopAdmin ? userStore.orgId! : workshops.value[0]?.id
   form.value = {
     gender: '男',
     unitName: '南宁通信段',
     employeeStatus: '在岗',
-    workshopId: workshops.value[0]?.id,
-    areaId: areas.value[0]?.id
+    workshopId: wsId,
+    areaId: undefined
   }
+  dialogAreas.value = []
+  if (wsId) {
+    try { dialogAreas.value = await orgApi.getAreasByWorkshopId(wsId) } catch { /* 忽略 */ }
+  }
+  form.areaId = dialogAreas.value[0]?.id
   dialogVisible.value = true
 }
 
-function showEdit(row: Employee) {
+async function showEdit(row: Employee) {
   editingId.value = row.id
   form.value = { ...row }
+  dialogAreas.value = []
+  if (row.workshopId) {
+    try { dialogAreas.value = await orgApi.getAreasByWorkshopId(row.workshopId) } catch { /* 忽略 */ }
+  }
   dialogVisible.value = true
 }
 
@@ -338,13 +382,18 @@ async function handleSave() {
 
 // ==================== 调动 ====================
 
-function showTransfer(row: Employee) {
+async function showTransfer(row: Employee) {
   transferEmp.value = row
+  const wsId = userStore.isWorkshopAdmin ? userStore.orgId! : row.workshopId
   transferForm.value = {
-    afterWorkshopId: row.workshopId,
+    afterWorkshopId: wsId,
     afterAreaId: row.areaId,
     afterTeamName: row.teamName || '',
     transferReason: ''
+  }
+  transferAreas.value = []
+  if (wsId) {
+    try { transferAreas.value = await orgApi.getAreasByWorkshopId(wsId) } catch { /* 忽略 */ }
   }
   transferVisible.value = true
 }

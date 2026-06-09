@@ -32,7 +32,7 @@ public class EmployeeService {
     private final OperationLogService logService;
 
     /** 分页查询人员（手动分页：先COUNT再LIMIT） */
-    public IPage<Employee> getPage(Integer pageNum, Integer pageSize, String keyword, Long workshopId, Long areaId, String status) {
+    public IPage<Employee> getPage(Integer pageNum, Integer pageSize, String keyword, Long workshopId, Long areaId, String status, Boolean workshopLevel) {
         // 构建公用条件
         LambdaQueryWrapper<Employee> countWrapper = new LambdaQueryWrapper<Employee>()
                 .like(keyword != null, Employee::getName, keyword)
@@ -40,6 +40,11 @@ public class EmployeeService {
                 .eq(areaId != null, Employee::getAreaId, areaId)
                 .eq(status != null && !status.isEmpty(), Employee::getEmployeeStatus, status)
                 .eq(Employee::getEnabled, 1);
+
+        // 车间本级人员
+        if (workshopLevel != null && workshopLevel) {
+            countWrapper.isNull(Employee::getAreaId);
+        }
 
         // 数据范围
         if (UserContext.isWorkshopAdmin()) {
@@ -60,6 +65,10 @@ public class EmployeeService {
                 .eq(Employee::getEnabled, 1)
                 .orderByDesc(Employee::getCreateTime)
                 .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+
+        if (workshopLevel != null && workshopLevel) {
+            dataWrapper.isNull(Employee::getAreaId);
+        }
 
         if (UserContext.isWorkshopAdmin()) {
             dataWrapper.eq(Employee::getWorkshopId, UserContext.getOrgId());
@@ -146,6 +155,29 @@ public class EmployeeService {
     public void transfer(Long employeeId, Long newWorkshopId, Long newAreaId, String newTeamName, String reason) {
         Employee emp = employeeMapper.selectById(employeeId);
         if (emp == null) throw new RuntimeException("人员不存在");
+
+        // 权限校验：车间管理员只能调动本车间的人员
+        if (UserContext.isWorkshopAdmin()) {
+            if (!UserContext.getOrgId().equals(emp.getWorkshopId())) {
+                throw new RuntimeException("无权调动其他车间的人员");
+            }
+            // 只能调到本车间
+            if (!UserContext.getOrgId().equals(newWorkshopId)) {
+                throw new RuntimeException("只能调动到本车间内");
+            }
+            // areaId=0 表示车间本级，允许
+            if (newAreaId != null && newAreaId != 0L) {
+                OrgUnit targetArea = orgUnitMapper.selectById(newAreaId);
+                if (targetArea == null || !UserContext.getOrgId().equals(targetArea.getParentId())) {
+                    throw new RuntimeException("目标工区不属于本车间");
+                }
+            }
+        }
+
+        // areaId=0 表示车间本级，转为 null
+        if (newAreaId != null && newAreaId == 0L) {
+            newAreaId = null;
+        }
 
         // 创建调动记录
         EmployeeTransferRecord record = new EmployeeTransferRecord();
