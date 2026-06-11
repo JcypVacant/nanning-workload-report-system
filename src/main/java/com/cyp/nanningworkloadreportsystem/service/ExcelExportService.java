@@ -158,6 +158,8 @@ public class ExcelExportService {
 
             // 填充数据行，按日期→人员
             int rowIdx = 9;
+            BigDecimal grandTotalHours = BigDecimal.ZERO;
+            BigDecimal grandTotalPoints = BigDecimal.ZERO;
             for (String date : sortedDates) {
                 Map<Long, Map<String, Map<String, BigDecimal>>> empMap2 = dateEmpAgg.get(date);
                 // 按人员姓名排序
@@ -174,19 +176,27 @@ public class ExcelExportService {
 
                     // 工时行
                     getOrCreateRow(sheet, rowIdx++);
-                    fillDataRow(sheet.getRow(rowIdx - 1), true, empName, date, "工时",
+                    BigDecimal hoursTotal = fillDataRow(sheet.getRow(rowIdx - 1), true, empName, date, "工时",
                             typeMap.getOrDefault("HOURS", Collections.emptyMap()));
+                    grandTotalHours = grandTotalHours.add(hoursTotal);
 
                     // 工分行
                     getOrCreateRow(sheet, rowIdx++);
-                    fillDataRow(sheet.getRow(rowIdx - 1), false, null, null, "工分",
+                    BigDecimal pointsTotal = fillDataRow(sheet.getRow(rowIdx - 1), false, null, null, "工分",
                             typeMap.getOrDefault("POINTS", Collections.emptyMap()));
+                    grandTotalPoints = grandTotalPoints.add(pointsTotal);
 
                     // 合并A、B列（姓名+日期），C列不合并
                     mergeCellIfNeeded(sheet, rowIdx - 2, rowIdx - 1, 0);
                     mergeCellIfNeeded(sheet, rowIdx - 2, rowIdx - 1, 1);
                 }
             }
+
+            // 填入 DH8/DH9 合计（row 7/8, 0-based）
+            Row row8 = getOrCreateRow(sheet, 7);
+            setCell(row8, 111, grandTotalHours.doubleValue());
+            Row row9 = getOrCreateRow(sheet, 8);
+            setCell(row9, 111, grandTotalPoints.doubleValue());
 
             // 输出
             try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -214,15 +224,28 @@ public class ExcelExportService {
         titleCell.setCellValue(title);
     }
 
-    /** 获取或创建行 */
+    /** 获取或创建行（新建行时从模板第一行数据行复制样式，避免超出行没有边框） */
     private Row getOrCreateRow(Sheet sheet, int rowIdx) {
         Row row = sheet.getRow(rowIdx);
-        if (row == null) row = sheet.createRow(rowIdx);
+        if (row == null) {
+            row = sheet.createRow(rowIdx);
+            // 从模板第10行复制样式
+            Row templateRow = sheet.getRow(9);
+            if (templateRow != null) {
+                for (int c = 0; c <= 111; c++) {
+                    Cell tCell = templateRow.getCell(c);
+                    if (tCell != null) {
+                        Cell newCell = row.createCell(c);
+                        newCell.setCellStyle(tCell.getCellStyle());
+                    }
+                }
+            }
+        }
         return row;
     }
 
-    /** 填充一行数据（姓名和日期只填在工时行，工分行不填A/B列） */
-    private void fillDataRow(Row row, boolean isFirstRow, String name, String dates, String type,
+    /** 填充一行数据，返回该行合计值 */
+    private BigDecimal fillDataRow(Row row, boolean isFirstRow, String name, String dates, String type,
                              Map<String, BigDecimal> itemValues) {
         if (isFirstRow) {
             setCell(row, 0, name);   // A: 姓名（仅第一行）
@@ -249,9 +272,8 @@ public class ExcelExportService {
         }
 
         // 合计列（DH=111, 0-based=110）
-        if (total.compareTo(BigDecimal.ZERO) > 0) {
-            setCell(row, 110, total.doubleValue());
-        }
+        setCell(row, 111, total.doubleValue());
+        return total;
     }
 
     /** 精确查找列 */
@@ -262,10 +284,10 @@ public class ExcelExportService {
     /** 模糊匹配：用path的各层级逐步匹配 */
     private Integer fuzzyFindColumn(String itemPath) {
         if (itemPath == null) return null;
-        String[] parts = itemPath.split(">");
+        String[] parts = itemPath.split("/");
         // 从完整路径开始逐步缩短
         for (int len = parts.length; len >= 1; len--) {
-            String key = String.join(">", Arrays.copyOf(parts, len)).trim();
+            String key = String.join("/", Arrays.copyOf(parts, len)).trim();
             Integer col = columnMapping.get(key);
             if (col != null) return col;
         }

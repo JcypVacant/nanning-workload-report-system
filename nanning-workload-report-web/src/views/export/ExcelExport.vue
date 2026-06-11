@@ -119,7 +119,20 @@ async function handleExport() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `填报数据导出_${new Date().toISOString().slice(0,10)}.xlsx`
+    // 根据导出范围生成文件名
+    const d = new Date()
+    const ts = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    let filename = ''
+    if (scope.value === 'area') {
+      const areaName = userStore.userInfo?.orgName || '工区'
+      filename = `${areaName}填报数据_${ts}.xlsx`
+    } else if (scope.value === 'workshop') {
+      const wsName = userStore.userInfo?.orgName || '车间'
+      filename = `${wsName}填报数据_${ts}.xlsx`
+    } else {
+      filename = `全段填报数据_${ts}.xlsx`
+    }
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
     ElMessage.success('导出成功')

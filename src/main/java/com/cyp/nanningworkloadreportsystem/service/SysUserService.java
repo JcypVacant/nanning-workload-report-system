@@ -6,7 +6,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cyp.nanningworkloadreportsystem.entity.SysUser;
+import com.cyp.nanningworkloadreportsystem.entity.OrgUnit;
 import com.cyp.nanningworkloadreportsystem.entity.SysUserOrgScope;
+import com.cyp.nanningworkloadreportsystem.mapper.OrgUnitMapper;
 import com.cyp.nanningworkloadreportsystem.mapper.SysUserMapper;
 import com.cyp.nanningworkloadreportsystem.mapper.SysUserOrgScopeMapper;
 import com.cyp.nanningworkloadreportsystem.util.UserContext;
@@ -30,6 +32,7 @@ public class SysUserService {
 
     private final SysUserMapper sysUserMapper;
     private final SysUserOrgScopeMapper sysUserOrgScopeMapper;
+    private final OrgUnitMapper orgUnitMapper;
     private final OperationLogService logService;
 
     /** 系统默认密码（从配置文件读取） */
@@ -101,6 +104,13 @@ public class SysUserService {
             StpUtil.getSession().set("roleCode", scope.getRoleCode());
             StpUtil.getSession().set("scopeType", scope.getScopeType());
             StpUtil.getSession().set("orgId", scope.getOrgId());
+            // 查询并存储组织名称
+            if (scope.getOrgId() != null && scope.getOrgId() > 0) {
+                OrgUnit org = orgUnitMapper.selectById(scope.getOrgId());
+                if (org != null) {
+                    StpUtil.getSession().set("orgName", org.getOrgName());
+                }
+            }
         }
         StpUtil.getSession().set("username", user.getUsername());
         StpUtil.getSession().set("realName", user.getRealName());
@@ -121,6 +131,11 @@ public class SysUserService {
                 SysUserOrgScope scope = scopes.get(0);
                 user.setRoleCode(scope.getRoleCode());
                 user.setOrgId(scope.getOrgId());
+                // 查询组织名称
+                if (scope.getOrgId() != null && scope.getOrgId() > 0) {
+                    OrgUnit org = orgUnitMapper.selectById(scope.getOrgId());
+                    if (org != null) user.setOrgName(org.getOrgName());
+                }
             }
         }
         return user;
