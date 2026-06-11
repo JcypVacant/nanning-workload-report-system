@@ -137,7 +137,7 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="所属车间" required>
-              <el-select v-model="form.workshopId" placeholder="选择车间" style="width:100%" filterable :disabled="userStore.isWorkshopAdmin">
+              <el-select v-model="form.workshopId" placeholder="选择车间" style="width:100%" filterable :disabled="userStore.isWorkshopAdmin" @change="onFormWorkshopChange">
                 <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
               </el-select>
             </el-form-item>
@@ -315,6 +315,15 @@ async function loadData() {
 }
 
 function handleSearch() { pageNum.value = 1; loadData() }
+
+/** 表单车间变更时加载工区 */
+async function onFormWorkshopChange(val: number | undefined) {
+  form.areaId = undefined
+  dialogAreas.value = []
+  if (val) {
+    try { dialogAreas.value = await orgApi.getAreasByWorkshopId(val) } catch { /* 忽略 */ }
+  }
+}
 
 function handleReset() {
   keyword.value = ''
