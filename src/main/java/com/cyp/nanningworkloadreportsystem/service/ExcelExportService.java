@@ -396,11 +396,15 @@ public class ExcelExportService {
 
     // ==================== 车间/段级导出（保留原有简单实现） ====================
 
-    public byte[] exportWorkshop(Long periodId, Long workshopId) {
-        if (UserContext.isWorkshopAdmin() && !UserContext.getOrgId().equals(workshopId)) {
-            throw new RuntimeException("无权导出其他车间的数据");
+    public byte[] exportWorkshop(Long periodId, Long areaId) {
+        // 校验该工区属于本车间
+        if (UserContext.isWorkshopAdmin()) {
+            OrgUnit area = orgUnitMapper.selectById(areaId);
+            if (area == null || !UserContext.getOrgId().equals(area.getParentId())) {
+                throw new RuntimeException("无权导出该工区的数据");
+            }
         }
-        return exportArea(periodId, workshopId); // 简化：导出车间=导出所有下属工区
+        return exportArea(periodId, areaId);
     }
 
     public byte[] exportSection(Long periodId) {

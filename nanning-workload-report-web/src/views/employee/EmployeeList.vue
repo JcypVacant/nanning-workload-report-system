@@ -18,8 +18,8 @@
         <el-form-item label="姓名">
           <el-input v-model="keyword" placeholder="搜索人员姓名" clearable @keyup.enter="handleSearch" />
         </el-form-item>
-        <el-form-item label="车间">
-          <el-select v-model="filterWorkshopId" placeholder="全部车间" clearable style="width:180px" :disabled="userStore.isWorkshopAdmin" @change="onFilterWorkshopChange">
+        <el-form-item label="车间" v-if="!userStore.isWorkshopAdmin">
+          <el-select v-model="filterWorkshopId" placeholder="全部车间" clearable style="width:180px" @change="onFilterWorkshopChange">
             <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
           </el-select>
         </el-form-item>

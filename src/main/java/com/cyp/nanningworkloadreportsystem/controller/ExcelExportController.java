@@ -39,14 +39,14 @@ public class ExcelExportController {
         return buildFileResponse(bytes, "工区填报数据_" + timestamp() + ".xlsx");
     }
 
-    @Operation(summary = "导出车间数据")
-    @GetMapping("/workshop/{workshopId}")
-    public ResponseEntity<byte[]> exportWorkshop(@PathVariable Long workshopId,
+    @Operation(summary = "导出车间下属工区数据")
+    @GetMapping("/workshop/{areaId}")
+    public ResponseEntity<byte[]> exportWorkshop(@PathVariable Long areaId,
                                                   @RequestParam Long periodId) {
-        byte[] bytes = excelExportService.exportWorkshop(periodId, workshopId);
-        operationLogService.record("Excel导出", "EXPORT", "workshop:" + workshopId,
-                "导出车间数据: periodId=" + periodId + ", workshopId=" + workshopId);
-        return buildFileResponse(bytes, "车间填报数据_" + timestamp() + ".xlsx");
+        byte[] bytes = excelExportService.exportWorkshop(periodId, areaId);
+        operationLogService.record("Excel导出", "EXPORT", "area:" + areaId,
+                "导出工区数据: periodId=" + periodId + ", areaId=" + areaId);
+        return buildFileResponse(bytes, "工区填报数据_" + timestamp() + ".xlsx");
     }
 
     @Operation(summary = "导出全段数据")

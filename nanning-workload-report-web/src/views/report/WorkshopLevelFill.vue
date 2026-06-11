@@ -280,6 +280,12 @@ onMounted(async () => {
   if (userStore.orgId) {
     try {
       areas.value = await orgApi.getAreasByWorkshopId(userStore.orgId)
+      // 默认选中"XX车间本级"
+      const defaultArea = areas.value.find(a => a.orgName.includes('本级'))
+      if (defaultArea) {
+        selectedAreaId.value = defaultArea.id
+        reportAreaId.value = defaultArea.id
+      }
     } catch { /* 忽略 */ }
   }
 
