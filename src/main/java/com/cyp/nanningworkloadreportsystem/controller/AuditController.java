@@ -101,8 +101,10 @@ public class AuditController {
     public Result<PageResult<AuditRecord>> getRecords(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
-            @RequestParam(required = false) Long periodId) {
-        IPage<AuditRecord> page = auditService.getAuditRecords(pageNum, pageSize, periodId);
+            @RequestParam(required = false) Long periodId,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) Long areaId) {
+        IPage<AuditRecord> page = auditService.getAuditRecords(pageNum, pageSize, periodId, action, areaId);
         return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
     }
 

@@ -59,7 +59,12 @@
 
     <!-- Card 3: 已填报记录 -->
     <el-card style="margin-top:16px">
-      <template #header>已填报记录</template>
+      <template #header>
+        <div class="card-header">
+          <span>已填报记录</span>
+          <el-button type="success" size="small" @click="handleBatchSubmit" :disabled="!canBatchSubmit">批量提交</el-button>
+        </div>
+      </template>
       <!-- 筛选行 -->
       <el-form :inline="true" class="search-bar">
         <el-form-item label="日期">
@@ -92,7 +97,8 @@
           <el-button @click="handleReportReset">重置</el-button>
         </el-form-item>
       </el-form>
-      <el-table :data="reportList" border stripe v-loading="loadingReports">
+      <el-table :data="reportList" border stripe v-loading="loadingReports" @selection-change="onReportSelectionChange">
+        <el-table-column type="selection" width="45" />
         <el-table-column prop="employeeName" label="人员" width="100" />
         <el-table-column prop="areaName" label="所属工区" width="120" />
         <el-table-column prop="workDate" label="日期" width="120" />
@@ -255,6 +261,10 @@ const filterReportType = ref('')
 const filterStatus = ref('')
 const reportAreaId = ref<string | number>('')
 
+// 批量选择
+const selectedReports = ref<WorkReport[]>([])
+const canBatchSubmit = computed(() => selectedReports.value.length > 0 && selectedReports.value.every(r => r.status === '草稿' || r.status === '已退回'))
+
 const totalSumTime = computed(() => items.value.reduce((s, i) => s + (i.numberValue || 0), 0))
 const totalSumPoints = computed(() => items.value.reduce((s, i) => s + (i.pointsValue || 0), 0))
 
@@ -388,6 +398,21 @@ function handleReportReset() {
   reportAreaId.value = ''
   reportPageNum.value = 1
   loadReportPage()
+}
+
+function onReportSelectionChange(rows: WorkReport[]) {
+  selectedReports.value = rows
+}
+
+async function handleBatchSubmit() {
+  if (!canBatchSubmit.value) return
+  try {
+    await ElMessageBox.confirm(`确定要批量提交选中的 ${selectedReports.value.length} 条记录吗？`, '提示', { type: 'warning' })
+    await reportApi.batchSubmit(selectedReports.value.map(r => r.id))
+    ElMessage.success(`成功提交 ${selectedReports.value.length} 条记录`)
+    selectedReports.value = []
+    loadReportPage()
+  } catch { /* 用户取消 */ }
 }
 
 /** 打开填报对话框（新增） */

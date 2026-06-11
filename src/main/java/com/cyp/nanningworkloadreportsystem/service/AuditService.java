@@ -319,10 +319,12 @@ public class AuditService {
     /**
      * 查询审核记录
      */
-    public IPage<AuditRecord> getAuditRecords(Integer pageNum, Integer pageSize, Long periodId) {
+    public IPage<AuditRecord> getAuditRecords(Integer pageNum, Integer pageSize, Long periodId, String action, Long areaId) {
         // 构建条件
         LambdaQueryWrapper<AuditRecord> countWrapper = new LambdaQueryWrapper<AuditRecord>()
-                .eq(periodId != null, AuditRecord::getPeriodId, periodId);
+                .eq(periodId != null, AuditRecord::getPeriodId, periodId)
+                .eq(action != null && !action.isEmpty(), AuditRecord::getAction, action)
+                .eq(areaId != null, AuditRecord::getOrgId, areaId);
 
         // 数据范围：车间管理员只看本车间的审核记录
         if (UserContext.isWorkshopAdmin()) {
@@ -342,7 +344,9 @@ public class AuditService {
         Long total = auditRecordMapper.selectCount(countWrapper);
 
         LambdaQueryWrapper<AuditRecord> dataWrapper = new LambdaQueryWrapper<AuditRecord>()
-                .eq(periodId != null, AuditRecord::getPeriodId, periodId);
+                .eq(periodId != null, AuditRecord::getPeriodId, periodId)
+                .eq(action != null && !action.isEmpty(), AuditRecord::getAction, action)
+                .eq(areaId != null, AuditRecord::getOrgId, areaId);
         if (UserContext.isWorkshopAdmin()) {
             List<OrgUnit> areas = orgUnitMapper.selectList(
                     new LambdaQueryWrapper<OrgUnit>().eq(OrgUnit::getParentId, UserContext.getOrgId()));
