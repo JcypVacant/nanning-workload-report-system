@@ -39,7 +39,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">{{ row.createTime?.replace('T', ' ') }}</template>
+        </el-table-column>
         <el-table-column label="操作" min-width="250" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showEdit(row)">编辑</el-button>
