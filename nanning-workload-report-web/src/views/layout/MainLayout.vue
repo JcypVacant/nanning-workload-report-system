@@ -76,16 +76,10 @@
           <template #title>车间审核</template>
         </el-menu-item>
 
-        <!-- 车间汇总（段级+车间管理员） -->
-        <el-menu-item v-if="!userStore.isAreaReporter" index="/summary/workshop">
+        <!-- 汇总管理（段级+车间管理员） -->
+        <el-menu-item v-if="!userStore.isAreaReporter" index="/summary">
           <el-icon><DataAnalysis /></el-icon>
-          <template #title>车间汇总</template>
-        </el-menu-item>
-
-        <!-- 段级汇总（仅段级管理员） -->
-        <el-menu-item v-if="userStore.isSectionAdmin" index="/summary/section">
-          <el-icon><TrendCharts /></el-icon>
-          <template #title>段级汇总</template>
+          <template #title>汇总管理</template>
         </el-menu-item>
 
         <!-- 统计分析 -->

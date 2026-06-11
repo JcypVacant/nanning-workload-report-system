@@ -94,19 +94,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/audit/AuditRecordList.vue'),
         meta: { title: '审核记录' }
       },
-      // 车间汇总（段级+车间管理员）
+      // 汇总管理（段级+车间管理员）
       {
-        path: 'summary/workshop',
-        name: 'WorkshopSummary',
-        component: () => import('@/views/summary/WorkshopSummary.vue'),
-        meta: { title: '车间汇总', role: ['SECTION_ADMIN', 'WORKSHOP_ADMIN'] }
-      },
-      // 段级汇总（仅段级管理员）
-      {
-        path: 'summary/section',
-        name: 'SectionSummary',
-        component: () => import('@/views/summary/SectionSummary.vue'),
-        meta: { title: '段级汇总', role: 'SECTION_ADMIN' }
+        path: 'summary',
+        name: 'SummaryManage',
+        component: () => import('@/views/summary/SummaryManage.vue'),
+        meta: { title: '汇总管理', role: ['SECTION_ADMIN', 'WORKSHOP_ADMIN'] }
       },
       // 统计分析（所有角色，不同数据范围）
       {
