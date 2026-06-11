@@ -11,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.*;
 
 /**
  * 审核服务类
@@ -97,7 +97,7 @@ public class AuditService {
             dataWrapper.eq(WorkReport::getWorkshopId, UserContext.getOrgId());
         }
 
-        dataWrapper.orderByAsc(WorkReport::getAreaId, WorkReport::getWorkDate)
+        dataWrapper.orderByAsc(WorkReport::getAreaId).orderByDesc(WorkReport::getWorkDate)
                 .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
         List<WorkReport> records = reportMapper.selectList(dataWrapper);
         records.forEach(this::enrich);
@@ -263,6 +263,57 @@ public class AuditService {
         log.info("提交到段级: periodId={}, workshopId={}, lockedCount={}", periodId, workshopId, approvedReports.size());
         logService.record("车间审核", "SUBMIT_TO_SECTION", String.valueOf(periodId),
                 "提交" + approvedReports.size() + "条记录到段级");
+    }
+
+    /** 批量退回（与批量通过对称） */
+    @Transactional
+    public void batchReturn(List<Long> reportIds, String comment) {
+        if (reportIds == null || reportIds.isEmpty()) {
+            throw new RuntimeException("请选择要退回的记录");
+        }
+        if (comment == null || comment.trim().isEmpty()) {
+            throw new RuntimeException("批量退回必须填写退回原因");
+        }
+        for (Long id : reportIds) {
+            returnReport(id, comment);
+        }
+        log.info("批量退回: count={}", reportIds.size());
+    }
+
+    /** 查询未填报的人员（该车间该月份没有任何填报记录的人员） */
+    public List<Map<String, Object>> getUnsubmitted(Long periodId) {
+        Long workshopId = UserContext.getOrgId();
+        // 查询该车间下所有在岗人员
+        List<Employee> allEmps = employeeMapper.selectList(
+                new LambdaQueryWrapper<Employee>()
+                        .eq(Employee::getWorkshopId, workshopId)
+                        .eq(Employee::getEnabled, 1)
+                        .eq(Employee::getEmployeeStatus, "在岗"));
+        // 查询该月份有填报记录的人员ID
+        List<Long> reportedEmpIds = reportMapper.selectList(
+                new LambdaQueryWrapper<WorkReport>()
+                        .select(WorkReport::getEmployeeId)
+                        .eq(WorkReport::getPeriodId, periodId)
+                        .eq(WorkReport::getWorkshopId, workshopId)
+                        .groupBy(WorkReport::getEmployeeId)
+        ).stream().map(WorkReport::getEmployeeId).distinct().toList();
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Employee emp : allEmps) {
+            if (!reportedEmpIds.contains(emp.getId())) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("employeeId", emp.getId());
+                item.put("employeeName", emp.getName());
+                if (emp.getAreaId() != null) {
+                    OrgUnit area = orgUnitMapper.selectById(emp.getAreaId());
+                    item.put("areaName", area != null ? area.getOrgName() : "");
+                } else {
+                    item.put("areaName", "车间本级");
+                }
+                result.add(item);
+            }
+        }
+        return result;
     }
 
     /**

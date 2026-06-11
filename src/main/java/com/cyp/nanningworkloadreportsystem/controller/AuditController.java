@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 审核管理控制器
@@ -80,6 +81,19 @@ public class AuditController {
     public Result<Void> submitToSection(@PathVariable Long periodId) {
         auditService.submitToSection(periodId);
         return Result.ok();
+    }
+
+    @Operation(summary = "批量退回修改")
+    @PostMapping("/batch-return")
+    public Result<Void> batchReturn(@RequestBody BatchAuditRequest req) {
+        auditService.batchReturn(req.getReportIds(), req.getComment());
+        return Result.ok();
+    }
+
+    @Operation(summary = "查询未填报人员")
+    @GetMapping("/unsubmitted")
+    public Result<List<Map<String, Object>>> getUnsubmitted(@RequestParam Long periodId) {
+        return Result.ok(auditService.getUnsubmitted(periodId));
     }
 
     @Operation(summary = "查询审核记录")

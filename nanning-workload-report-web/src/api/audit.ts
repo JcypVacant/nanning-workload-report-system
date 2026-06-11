@@ -30,6 +30,16 @@ export const auditApi = {
     return request.post('/audit/batch-approve', { reportIds, comment })
   },
 
+  /** 批量退回修改 */
+  batchReturn(reportIds: number[], comment: string): Promise<void> {
+    return request.post('/audit/batch-return', { reportIds, comment })
+  },
+
+  /** 查询未填报人员 */
+  getUnsubmitted(periodId: number): Promise<any[]> {
+    return request.get('/audit/unsubmitted', { params: { periodId } })
+  },
+
   /** 退回修改 */
   returnReport(reportId: number, comment: string): Promise<void> {
     return request.post(`/audit/${reportId}/return`, { comment })
