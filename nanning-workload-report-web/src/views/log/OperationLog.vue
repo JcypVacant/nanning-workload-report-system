@@ -5,8 +5,11 @@
     <el-card style="margin-top:16px">
       <!-- 筛选栏 -->
       <el-form :inline="true" class="search-bar">
+        <el-form-item label="操作用户">
+          <el-input v-model="filterKeyword" placeholder="搜索用户" clearable style="width:130px" @keyup.enter="handleSearch" @clear="handleSearch" />
+        </el-form-item>
         <el-form-item label="操作模块">
-          <el-select v-model="filterModule" placeholder="全部模块" clearable style="width:160px" @change="handleSearch">
+          <el-select v-model="filterModule" placeholder="全部模块" clearable style="width:140px" @change="handleSearch">
             <el-option label="用户认证" value="用户认证" />
             <el-option label="账号管理" value="账号管理" />
             <el-option label="人员管理" value="人员管理" />
@@ -18,6 +21,11 @@
             <el-option label="Excel导出" value="Excel导出" />
           </el-select>
         </el-form-item>
+        <el-form-item label="时间">
+          <el-date-picker v-model="filterTimeRange" type="datetimerange" range-separator="至"
+            start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD HH:mm:ss"
+            style="width:340px" @change="handleSearch" />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="handleReset">重置</el-button>
@@ -26,16 +34,18 @@
 
       <el-table :data="tableData" border stripe v-loading="loading" style="width:100%">
         <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="operateTime" label="操作时间" width="175" sortable />
+        <el-table-column label="操作时间" width="175" sortable>
+          <template #default="{ row }">{{ formatTime(row.operateTime) }}</template>
+        </el-table-column>
         <el-table-column prop="username" label="操作用户" width="120" />
         <el-table-column prop="moduleName" label="操作模块" width="120">
           <template #default="{row}">
             <el-tag size="small" type="info">{{ row.moduleName }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="operationType" label="操作类型" width="100">
+        <el-table-column label="操作类型" width="100">
           <template #default="{row}">
-            <el-tag size="small" :type="typeColor(row.operationType)">{{ row.operationType }}</el-tag>
+            <el-tag size="small" :type="typeColor(row.operationType)">{{ typeLabel(row.operationType) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="summary" label="操作摘要" min-width="250" show-overflow-tooltip />
@@ -68,6 +78,8 @@ const pageNum = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const filterModule = ref('')
+const filterKeyword = ref('')
+const filterTimeRange = ref<string[] | null>(null)
 
 onMounted(loadData)
 
@@ -77,19 +89,35 @@ async function loadData() {
     const res = await logApi.getPage({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
-      moduleName: filterModule.value || undefined
+      moduleName: filterModule.value || undefined,
+      keyword: filterKeyword.value || undefined,
+      startTime: filterTimeRange.value?.[0] || undefined,
+      endTime: filterTimeRange.value?.[1] || undefined
     })
     tableData.value = res.records
     total.value = res.total
-  } finally {
-    loading.value = false
-  }
+  } finally { loading.value = false }
 }
 
 function handleSearch() { pageNum.value = 1; loadData() }
-function handleReset() { filterModule.value = ''; pageNum.value = 1; loadData() }
+function handleReset() {
+  filterModule.value = ''; filterKeyword.value = ''; filterTimeRange.value = null
+  pageNum.value = 1; loadData()
+}
 function handleSizeChange() { pageNum.value = 1; loadData() }
 
+function formatTime(t: string) {
+  if (!t) return '-'
+  return t.replace('T', ' ')
+}
+function typeLabel(type: string) {
+  const m: Record<string, string> = {
+    LOGIN: '登录', CREATE: '新增', UPDATE: '修改', DELETE: '删除',
+    SUBMIT: '提交', APPROVE: '审核通过', RETURN: '退回',
+    EXPORT: '导出', TRANSFER: '调动', SUBMIT_TO_SECTION: '提交到段级'
+  }
+  return m[type] || type
+}
 function typeColor(type: string) {
   const m: Record<string, string> = {
     LOGIN: 'success', CREATE: 'primary', UPDATE: 'warning',

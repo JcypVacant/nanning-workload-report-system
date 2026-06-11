@@ -58,20 +58,32 @@
           <template #title>月度填报管理</template>
         </el-menu-item>
 
-        <!-- 工区填报（段级+工区填报员） -->
-        <el-menu-item v-if="!userStore.isWorkshopAdmin" index="/report/fill">
+        <!-- 工区填报（工区填报员） -->
+        <el-menu-item v-if="userStore.isAreaReporter" index="/report/fill">
           <el-icon><EditPen /></el-icon>
           <template #title>工区填报</template>
         </el-menu-item>
 
-        <!-- 车间本级填报（段级+车间管理员） -->
-        <el-menu-item v-if="!userStore.isAreaReporter" index="/report/workshop">
+        <!-- 车间本级填报（车间管理员） -->
+        <el-menu-item v-if="userStore.isWorkshopAdmin" index="/report/workshop">
           <el-icon><Edit /></el-icon>
           <template #title>车间本级填报</template>
         </el-menu-item>
 
-        <!-- 车间审核（段级+车间管理员） -->
-        <el-menu-item v-if="!userStore.isAreaReporter" index="/audit/review">
+        <!-- 段级审核（仅段级管理员） -->
+        <el-menu-item v-if="userStore.isSectionAdmin" index="/audit/section">
+          <el-icon><Checked /></el-icon>
+          <template #title>段级审核</template>
+        </el-menu-item>
+
+        <!-- 填报进度管理（仅段级管理员） -->
+        <el-menu-item v-if="userStore.isSectionAdmin" index="/progress">
+          <el-icon><DataBoard /></el-icon>
+          <template #title>填报进度管理</template>
+        </el-menu-item>
+
+        <!-- 车间审核（车间管理员） -->
+        <el-menu-item v-if="userStore.isWorkshopAdmin" index="/audit/review">
           <el-icon><Checked /></el-icon>
           <template #title>车间审核</template>
         </el-menu-item>

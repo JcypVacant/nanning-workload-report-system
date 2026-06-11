@@ -35,6 +35,11 @@ export const auditApi = {
     return request.post('/audit/batch-return', { reportIds, comment })
   },
 
+  /** 段级审核：分页查询待审核记录 */
+  getSectionPendingPage(params: Record<string, any>): Promise<any> {
+    return request.get('/audit/section/pending', { params })
+  },
+
   /** 查询未填报人员 */
   getUnsubmitted(periodId: number): Promise<any[]> {
     return request.get('/audit/unsubmitted', { params: { periodId } })

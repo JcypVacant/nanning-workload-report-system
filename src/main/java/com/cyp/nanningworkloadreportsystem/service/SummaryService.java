@@ -1,7 +1,12 @@
 package com.cyp.nanningworkloadreportsystem.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cyp.nanningworkloadreportsystem.dto.SectionSummaryDTO;
 import com.cyp.nanningworkloadreportsystem.dto.WorkshopSummaryDTO;
+import com.cyp.nanningworkloadreportsystem.entity.Employee;
+import com.cyp.nanningworkloadreportsystem.entity.OrgUnit;
+import com.cyp.nanningworkloadreportsystem.entity.WorkReport;
+import com.cyp.nanningworkloadreportsystem.mapper.EmployeeMapper;
 import com.cyp.nanningworkloadreportsystem.mapper.OrgUnitMapper;
 import com.cyp.nanningworkloadreportsystem.mapper.WorkReportMapper;
 import com.cyp.nanningworkloadreportsystem.util.UserContext;
@@ -10,9 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -27,6 +30,7 @@ public class SummaryService {
 
     private final WorkReportMapper workReportMapper;
     private final OrgUnitMapper orgUnitMapper;
+    private final EmployeeMapper employeeMapper;
 
     /**
      * 车间汇总：按工区分组统计
@@ -122,6 +126,39 @@ public class SummaryService {
         if (val instanceof Long) return (Long) val;
         if (val instanceof Number) return ((Number) val).longValue();
         return Long.parseLong(val.toString());
+    }
+
+    /** 各车间填报进度 */
+    public List<Map<String, Object>> getProgress(Long periodId) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        List<OrgUnit> workshops = orgUnitMapper.selectList(
+                new LambdaQueryWrapper<OrgUnit>().eq(OrgUnit::getOrgType, "WORKSHOP").eq(OrgUnit::getEnabled, true));
+        for (OrgUnit ws : workshops) {
+            // 该车间总人数
+            Long totalEmp = employeeMapper.selectCount(
+                    new LambdaQueryWrapper<Employee>().eq(Employee::getWorkshopId, ws.getId()).eq(Employee::getEnabled, 1));
+            // 已提交人数
+            Long submitted = workReportMapper.selectCount(
+                    new LambdaQueryWrapper<WorkReport>().eq(WorkReport::getPeriodId, periodId)
+                            .eq(WorkReport::getWorkshopId, ws.getId())
+                            .in(WorkReport::getStatus, Arrays.asList("已提交", "已审核", "已锁定")));
+            // 已审核人数
+            Long approved = workReportMapper.selectCount(
+                    new LambdaQueryWrapper<WorkReport>().eq(WorkReport::getPeriodId, periodId)
+                            .eq(WorkReport::getWorkshopId, ws.getId())
+                            .in(WorkReport::getStatus, Arrays.asList("已审核", "已锁定")));
+
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("workshopId", ws.getId());
+            item.put("workshopName", ws.getOrgName());
+            item.put("totalEmployees", totalEmp);
+            item.put("submitted", submitted);
+            item.put("approved", approved);
+            item.put("submittedPercent", totalEmp > 0 ? Math.round(submitted * 100.0 / totalEmp) : 0);
+            item.put("approvedPercent", totalEmp > 0 ? Math.round(approved * 100.0 / totalEmp) : 0);
+            result.add(item);
+        }
+        return result;
     }
 
     private BigDecimal toBigDecimal(Object val) {

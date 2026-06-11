@@ -28,9 +28,15 @@ public class OperationLogController {
     public Result<PageResult<OperationLog>> getPage(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
-            @RequestParam(required = false) String moduleName) {
+            @RequestParam(required = false) String moduleName,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime) {
         LambdaQueryWrapper<OperationLog> wrapper = new LambdaQueryWrapper<OperationLog>()
                 .eq(moduleName != null, OperationLog::getModuleName, moduleName)
+                .like(keyword != null && !keyword.isEmpty(), OperationLog::getUsername, keyword)
+                .ge(startTime != null && !startTime.isEmpty(), OperationLog::getOperateTime, startTime)
+                .le(endTime != null && !endTime.isEmpty(), OperationLog::getOperateTime, endTime)
                 .orderByDesc(OperationLog::getOperateTime);
         // 手动分页（MyBatis Plus 3.5.15 无 PaginationInnerInterceptor）
         Long total = operationLogMapper.selectCount(wrapper);

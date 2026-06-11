@@ -71,21 +71,35 @@ const routes: RouteRecordRaw[] = [
         path: 'report/fill',
         name: 'WorkReportFill',
         component: () => import('@/views/report/WorkReportFill.vue'),
-        meta: { title: '工区填报', role: ['SECTION_ADMIN', 'AREA_REPORTER'] }
+        meta: { title: '工区填报', role: 'AREA_REPORTER' }
       },
       // 车间本级填报（段级+车间管理员）
       {
         path: 'report/workshop',
         name: 'WorkshopFill',
         component: () => import('@/views/report/WorkshopLevelFill.vue'),
-        meta: { title: '车间本级填报', role: ['SECTION_ADMIN', 'WORKSHOP_ADMIN'] }
+        meta: { title: '车间本级填报', role: 'WORKSHOP_ADMIN' }
       },
       // 车间审核（段级+车间管理员）
       {
         path: 'audit/review',
         name: 'WorkshopReview',
         component: () => import('@/views/audit/WorkshopReview.vue'),
-        meta: { title: '车间审核', role: ['SECTION_ADMIN', 'WORKSHOP_ADMIN'] }
+        meta: { title: '车间审核', role: 'WORKSHOP_ADMIN' }
+      },
+      // 段级审核（仅段级管理员）
+      {
+        path: 'audit/section',
+        name: 'SectionReview',
+        component: () => import('@/views/audit/SectionReview.vue'),
+        meta: { title: '段级审核', role: 'SECTION_ADMIN' }
+      },
+      // 填报进度管理（仅段级管理员）
+      {
+        path: 'progress',
+        name: 'ProgressMonitor',
+        component: () => import('@/views/summary/ProgressMonitor.vue'),
+        meta: { title: '填报进度管理', role: 'SECTION_ADMIN' }
       },
       // 审核记录（所有角色）
       {

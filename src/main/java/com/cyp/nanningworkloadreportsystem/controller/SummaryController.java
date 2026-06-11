@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 汇总统计控制器
@@ -37,5 +38,11 @@ public class SummaryController {
     public Result<List<SectionSummaryDTO>> sectionSummary(
             @RequestParam Long periodId) {
         return Result.ok(summaryService.getSectionSummary(periodId));
+    }
+
+    @Operation(summary = "填报进度 — 各车间提交/审核进度")
+    @GetMapping("/progress")
+    public Result<List<Map<String, Object>>> progress(@RequestParam Long periodId) {
+        return Result.ok(summaryService.getProgress(periodId));
     }
 }

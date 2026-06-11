@@ -13,5 +13,10 @@ export const summaryApi = {
   /** 段级汇总：按车间分组统计 */
   getSectionSummary(periodId: number): Promise<SectionSummary[]> {
     return request.get('/summary/section', { params: { periodId } })
+  },
+
+  /** 填报进度 */
+  getProgress(periodId: number): Promise<any[]> {
+    return request.get('/summary/progress', { params: { periodId } })
   }
 }

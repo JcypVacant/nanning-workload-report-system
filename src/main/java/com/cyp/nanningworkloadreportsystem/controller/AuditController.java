@@ -90,6 +90,18 @@ public class AuditController {
         return Result.ok();
     }
 
+    @Operation(summary = "段级审核：分页查询记录")
+    @GetMapping("/section/pending")
+    public Result<PageResult<WorkReport>> getSectionPending(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) Long periodId,
+            @RequestParam(required = false) Long workshopId,
+            @RequestParam(required = false) String status) {
+        IPage<WorkReport> page = auditService.getSectionPending(pageNum, pageSize, periodId, workshopId, status);
+        return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
+    }
+
     @Operation(summary = "查询未填报人员")
     @GetMapping("/unsubmitted")
     public Result<List<Map<String, Object>>> getUnsubmitted(@RequestParam Long periodId) {

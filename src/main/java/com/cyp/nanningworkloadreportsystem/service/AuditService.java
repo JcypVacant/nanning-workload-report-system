@@ -152,7 +152,7 @@ public class AuditService {
         WorkReport report = reportMapper.selectById(reportId);
         if (report == null) throw new RuntimeException("填报记录不存在");
 
-        // 数据权限检查（最先执行，避免信息泄漏）
+        // 数据权限检查（车间管理员只能审本车间，段级管理员可审全部）
         if (UserContext.isWorkshopAdmin() && !report.getWorkshopId().equals(UserContext.getOrgId())) {
             throw new RuntimeException("无权审核其他车间的数据");
         }
@@ -203,11 +203,12 @@ public class AuditService {
      * 创建审核记录
      */
     private void createAuditRecord(WorkReport report, String action, String comment) {
+        String level = UserContext.isSectionAdmin() ? "SECTION" : "WORKSHOP";
         AuditRecord audit = new AuditRecord();
         audit.setPeriodId(report.getPeriodId());
         audit.setReportId(report.getId());
         audit.setOrgId(report.getAreaId());
-        audit.setAuditLevel("WORKSHOP");
+        audit.setAuditLevel(level);
         audit.setAction(action);
         audit.setComment(comment);
         audit.setOperatorId(UserContext.getUserId());
@@ -263,6 +264,37 @@ public class AuditService {
         log.info("提交到段级: periodId={}, workshopId={}, lockedCount={}", periodId, workshopId, approvedReports.size());
         logService.record("车间审核", "SUBMIT_TO_SECTION", String.valueOf(periodId),
                 "提交" + approvedReports.size() + "条记录到段级");
+    }
+
+    /** 段级审核：查询车间本级提交的记录（不含工区数据） */
+    public IPage<WorkReport> getSectionPending(Integer pageNum, Integer pageSize, Long periodId, Long workshopId, String status) {
+        // 查询所有"XX车间本级"的工区ID
+        List<Long> workshopLevelAreaIds = orgUnitMapper.selectList(
+                new LambdaQueryWrapper<OrgUnit>().eq(OrgUnit::getOrgType, "WORKSHOP_LEVEL")
+        ).stream().map(OrgUnit::getId).toList();
+
+        // 只查车间本级：areaId 为空 或 areaId 属于 WORKSHOP_LEVEL 类型工区
+        LambdaQueryWrapper<WorkReport> countWrapper = new LambdaQueryWrapper<WorkReport>()
+                .eq(periodId != null, WorkReport::getPeriodId, periodId)
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status)
+                .eq(workshopId != null, WorkReport::getWorkshopId, workshopId)
+                .and(w -> w.isNull(WorkReport::getAreaId).or().in(WorkReport::getAreaId, workshopLevelAreaIds));
+        Long total = reportMapper.selectCount(countWrapper);
+
+        LambdaQueryWrapper<WorkReport> dataWrapper = new LambdaQueryWrapper<WorkReport>()
+                .eq(periodId != null, WorkReport::getPeriodId, periodId)
+                .eq(status != null && !status.isEmpty(), WorkReport::getStatus, status)
+                .eq(workshopId != null, WorkReport::getWorkshopId, workshopId)
+                .and(w -> w.isNull(WorkReport::getAreaId).or().in(WorkReport::getAreaId, workshopLevelAreaIds))
+                .orderByAsc(WorkReport::getWorkshopId).orderByAsc(WorkReport::getAreaId).orderByDesc(WorkReport::getWorkDate)
+                .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+        List<WorkReport> records = reportMapper.selectList(dataWrapper);
+        records.forEach(this::enrich);
+
+        Page<WorkReport> page = new Page<>(pageNum, pageSize);
+        page.setTotal(total);
+        page.setRecords(records);
+        return page;
     }
 
     /** 批量退回（与批量通过对称） */
