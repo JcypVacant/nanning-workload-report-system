@@ -10,6 +10,11 @@ export const statisticsApi = {
     return request.get('/dashboard')
   },
 
+  /** 获取待办提醒 */
+  getNotifications(): Promise<any[]> {
+    return request.get('/dashboard/notifications')
+  },
+
   /** 获取车间对比数据 */
   getByWorkshop(params: Record<string, any>): Promise<any> {
     return request.get('/statistics/by-workshop', { params })

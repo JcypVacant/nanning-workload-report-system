@@ -21,6 +21,24 @@
       </el-col>
     </el-row>
 
+    <!-- 待办提醒 -->
+    <el-row :gutter="16" style="margin-top: 16px" v-if="notifications.length > 0">
+      <el-col :xs="24" :sm="12" :md="6" v-for="n in notifications" :key="n.title">
+        <el-card class="stat-card" shadow="hover">
+          <div class="card-content">
+            <div class="card-info">
+              <span class="card-value" :style="{ color: n.color }">{{ n.value }}</span>
+              <p class="card-title">{{ n.title }}</p>
+              <p class="card-desc">{{ n.desc }}</p>
+            </div>
+            <div class="card-icon" :style="{ background: n.color }">
+              <el-icon :size="20" color="#fff"><Bell /></el-icon>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- 图表面板 -->
     <el-row :gutter="16" style="margin-top: 16px;">
       <el-col :xs="24" :md="12">
@@ -48,6 +66,8 @@ import { statisticsApi } from '@/api/statistics'
 const userStore = useUserStore()
 const loading = ref(false)
 
+const notifications = ref<any[]>([])
+
 const statCards = ref([
   { title: '工时合计', value: '--', unit: '分钟', color: '#409eff' },
   { title: '工分合计', value: '--', unit: '分', color: '#67c23a' },
@@ -69,7 +89,11 @@ let projectChart: echarts.ECharts | null = null
 onMounted(async () => {
   loading.value = true
   try {
-    const data = await statisticsApi.getDashboard()
+    const [data, notifs] = await Promise.all([
+      statisticsApi.getDashboard(),
+      statisticsApi.getNotifications().catch(() => [])
+    ])
+    notifications.value = notifs || []
     updateCards(data)
     await nextTick()
     initCharts(data)
@@ -164,4 +188,5 @@ function handleResize() {
 }
 
 .chart-card { margin-bottom: 16px; }
+.card-desc { margin: 0; font-size: 11px; color: #ccc; }
 </style>
