@@ -94,10 +94,15 @@
             <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
           </el-select>
         </el-form-item>
-        <!-- 工区填报员：绑定一个工区 -->
-        <el-form-item v-if="form.roleCode === 'AREA_REPORTER'" label="绑定工区">
-          <el-select v-model="form.orgId" placeholder="选择所属工区" style="width:100%" filterable>
-            <el-option v-for="a in areas" :key="a.id" :label="a.orgName" :value="a.id" />
+        <!-- 工区填报员：选车间 → 选工区 -->
+        <el-form-item v-if="form.roleCode === 'AREA_REPORTER'" label="所属车间">
+          <el-select v-model="formWorkshopId" placeholder="先选择车间" style="width:100%" filterable @change="onFormWorkshopChange">
+            <el-option v-for="w in workshops" :key="w.id" :label="w.orgName" :value="w.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="form.roleCode === 'AREA_REPORTER'" label="所属工区">
+          <el-select v-model="form.orgId" placeholder="选择工区" style="width:100%" filterable :disabled="!formWorkshopId">
+            <el-option v-for="a in formAreaOptions" :key="a.id" :label="a.orgName" :value="a.id" />
           </el-select>
         </el-form-item>
         <!-- 段级管理员：显示提示，无需选择 -->
@@ -148,6 +153,8 @@ const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 const form = ref({ username: '', realName: '', phone: '', roleCode: 'AREA_REPORTER', orgId: 0 })
+const formWorkshopId = ref<number | null>(null)
+const formAreaOptions = ref<OrgUnit[]>([])
 
 onMounted(async () => {
   // 加载车间和工区列表用于账号绑定选择
@@ -160,10 +167,17 @@ onMounted(async () => {
 
 /** 角色切换时重置组织绑定 */
 function onRoleChange() {
-  if (form.value.roleCode === 'SECTION_ADMIN') {
-    form.value.orgId = 0
-  } else {
-    form.value.orgId = 0  // 重置，等待用户选择
+  formWorkshopId.value = null
+  formAreaOptions.value = []
+  form.value.orgId = 0
+}
+
+/** 表单车间变更时加载工区 */
+async function onFormWorkshopChange(val: number | null) {
+  form.value.orgId = 0
+  formAreaOptions.value = []
+  if (val) {
+    try { formAreaOptions.value = await orgApi.getAreasByWorkshopId(val) } catch { /* 忽略 */ }
   }
 }
 
@@ -218,6 +232,8 @@ function handleSizeChange() {
 function showCreate() {
   editingId.value = null
   form.value = { username: '', realName: '', phone: '', roleCode: 'AREA_REPORTER', orgId: 0 }
+  formWorkshopId.value = null
+  formAreaOptions.value = []
   dialogVisible.value = true
 }
 
@@ -229,6 +245,18 @@ function showEdit(row: SysUser) {
     phone: row.phone || '',
     roleCode: row.roleCode || 'AREA_REPORTER',
     orgId: row.orgId || 0
+  }
+  // 如果是工区填报员，预加载工区选项
+  if (row.roleCode === 'AREA_REPORTER' && row.orgId) {
+    // 找到该工区所属的车间
+    const area = areas.value.find(a => a.id === row.orgId)
+    if (area && area.parentId) {
+      formWorkshopId.value = area.parentId
+      orgApi.getAreasByWorkshopId(area.parentId).then(a => { formAreaOptions.value = a }).catch(() => {})
+    }
+  } else {
+    formWorkshopId.value = null
+    formAreaOptions.value = []
   }
   dialogVisible.value = true
 }
