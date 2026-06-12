@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 审核服务类
@@ -100,7 +101,7 @@ public class AuditService {
         dataWrapper.orderByAsc(WorkReport::getAreaId).orderByDesc(WorkReport::getWorkDate)
                 .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
         List<WorkReport> records = reportMapper.selectList(dataWrapper);
-        records.forEach(this::enrich);
+        enrich(records);
 
         Page<WorkReport> page = new Page<>(pageNum, pageSize);
         page.setTotal(total);
@@ -108,27 +109,50 @@ public class AuditService {
         return page;
     }
 
-    /** 为填报记录加载关联信息（人员姓名、工区名称、明细等） */
-    private void enrich(WorkReport report) {
-        Employee emp = employeeMapper.selectById(report.getEmployeeId());
-        if (emp != null) report.setEmployeeName(emp.getName());
-        OrgUnit area = orgUnitMapper.selectById(report.getAreaId());
-        if (area != null) report.setAreaName(area.getOrgName());
-        OrgUnit workshop = orgUnitMapper.selectById(report.getWorkshopId());
-        if (workshop != null) report.setWorkshopName(workshop.getOrgName());
-        List<WorkReportItem> items = itemMapper.selectList(
-                new LambdaQueryWrapper<WorkReportItem>()
-                        .eq(WorkReportItem::getReportId, report.getId())
-                        .orderByAsc(WorkReportItem::getSortOrder));
-        for (WorkReportItem item : items) {
-            WorkItem wi = workItemMapper.selectById(item.getWorkItemId());
-            if (wi != null) {
-                item.setItemName(wi.getItemName());
-                item.setItemPath(wi.getItemPath());
-            }
+    /** 批量加载关联信息（避免 N+1 查询） */
+    private void enrich(List<WorkReport> reports) {
+        if (reports.isEmpty()) return;
+        Set<Long> empIds = new HashSet<>();
+        Set<Long> areaIds = new HashSet<>();
+        Set<Long> wsIds = new HashSet<>();
+        Set<Long> reportIds = new HashSet<>();
+        for (WorkReport r : reports) {
+            if (r.getEmployeeId() != null) empIds.add(r.getEmployeeId());
+            if (r.getAreaId() != null) areaIds.add(r.getAreaId());
+            if (r.getWorkshopId() != null) wsIds.add(r.getWorkshopId());
+            reportIds.add(r.getId());
         }
-        report.setItems(items);
+
+        Map<Long, String> empNameMap = new HashMap<>();
+        if (!empIds.isEmpty()) employeeMapper.selectBatchIds(empIds).forEach(e -> empNameMap.put(e.getId(), e.getName()));
+        Map<Long, String> areaNameMap = new HashMap<>();
+        if (!areaIds.isEmpty()) orgUnitMapper.selectBatchIds(areaIds).forEach(o -> areaNameMap.put(o.getId(), o.getOrgName()));
+        Map<Long, String> wsNameMap = new HashMap<>();
+        if (!wsIds.isEmpty()) orgUnitMapper.selectBatchIds(wsIds).forEach(o -> wsNameMap.put(o.getId(), o.getOrgName()));
+
+        Map<Long, List<WorkReportItem>> itemsMap = new HashMap<>();
+        if (!reportIds.isEmpty()) {
+            itemMapper.selectList(new LambdaQueryWrapper<WorkReportItem>().in(WorkReportItem::getReportId, reportIds).orderByAsc(WorkReportItem::getSortOrder))
+                    .forEach(item -> itemsMap.computeIfAbsent(item.getReportId(), k -> new ArrayList<>()).add(item));
+        }
+        Set<Long> wiIds = itemsMap.values().stream().flatMap(List::stream).map(WorkReportItem::getWorkItemId).collect(Collectors.toSet());
+        Map<Long, WorkItem> wiMap = new HashMap<>();
+        if (!wiIds.isEmpty()) workItemMapper.selectBatchIds(wiIds).forEach(wi -> wiMap.put(wi.getId(), wi));
+
+        for (WorkReport report : reports) {
+            report.setEmployeeName(empNameMap.getOrDefault(report.getEmployeeId(), null));
+            report.setAreaName(areaNameMap.getOrDefault(report.getAreaId(), null));
+            report.setWorkshopName(wsNameMap.getOrDefault(report.getWorkshopId(), null));
+            List<WorkReportItem> items = itemsMap.getOrDefault(report.getId(), Collections.emptyList());
+            for (WorkReportItem item : items) {
+                WorkItem wi = wiMap.get(item.getWorkItemId());
+                if (wi != null) { item.setItemName(wi.getItemName()); item.setItemPath(wi.getItemPath()); }
+            }
+            report.setItems(items);
+        }
     }
+
+    private void enrich(WorkReport report) { enrich(List.of(report)); }
 
     /**
      * 批量审核通过
@@ -289,7 +313,7 @@ public class AuditService {
                 .orderByAsc(WorkReport::getWorkshopId).orderByAsc(WorkReport::getAreaId).orderByDesc(WorkReport::getWorkDate)
                 .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
         List<WorkReport> records = reportMapper.selectList(dataWrapper);
-        records.forEach(this::enrich);
+        enrich(records);
 
         Page<WorkReport> page = new Page<>(pageNum, pageSize);
         page.setTotal(total);

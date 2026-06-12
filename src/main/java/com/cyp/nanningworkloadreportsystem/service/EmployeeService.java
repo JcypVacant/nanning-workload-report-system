@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 
 /**
  * 人员管理服务类
@@ -78,16 +78,20 @@ public class EmployeeService {
 
         List<Employee> records = employeeMapper.selectList(dataWrapper);
 
-        // 填充关联字段（工区名称、车间名称）
+        // 批量填充关联字段（工区名称、车间名称，避免 N+1）
+        Set<Long> areaIds = new HashSet<>();
+        Set<Long> wsIds = new HashSet<>();
         for (Employee emp : records) {
-            if (emp.getAreaId() != null) {
-                OrgUnit area = orgUnitMapper.selectById(emp.getAreaId());
-                if (area != null) emp.setAreaName(area.getOrgName());
-            }
-            if (emp.getWorkshopId() != null) {
-                OrgUnit workshop = orgUnitMapper.selectById(emp.getWorkshopId());
-                if (workshop != null) emp.setWorkshopName(workshop.getOrgName());
-            }
+            if (emp.getAreaId() != null) areaIds.add(emp.getAreaId());
+            if (emp.getWorkshopId() != null) wsIds.add(emp.getWorkshopId());
+        }
+        Map<Long, String> areaNameMap = new HashMap<>();
+        if (!areaIds.isEmpty()) orgUnitMapper.selectBatchIds(areaIds).forEach(o -> areaNameMap.put(o.getId(), o.getOrgName()));
+        Map<Long, String> wsNameMap = new HashMap<>();
+        if (!wsIds.isEmpty()) orgUnitMapper.selectBatchIds(wsIds).forEach(o -> wsNameMap.put(o.getId(), o.getOrgName()));
+        for (Employee emp : records) {
+            emp.setAreaName(areaNameMap.getOrDefault(emp.getAreaId(), null));
+            emp.setWorkshopName(wsNameMap.getOrDefault(emp.getWorkshopId(), null));
         }
 
         Page<Employee> page = new Page<>(pageNum, pageSize);

@@ -13,7 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 工时工分填报服务类（核心业务模块）
@@ -95,8 +96,8 @@ public class WorkReportService {
 
         List<WorkReport> records = reportMapper.selectList(dataWrapper);
 
-        // 加载关联信息
-        records.forEach(this::enrichReportInfo);
+        // 批量加载关联信息
+        enrichReportInfo(records);
 
         Page<WorkReport> page = new Page<>(pageNum, pageSize);
         page.setTotal(total);
@@ -117,35 +118,65 @@ public class WorkReportService {
     }
 
     /**
-     * 为填报记录加载关联信息（人员姓名、工区名称等）
+     * 批量加载关联信息（避免 N+1 查询）
      */
-    private void enrichReportInfo(WorkReport report) {
-        // 人员姓名
-        Employee emp = employeeMapper.selectById(report.getEmployeeId());
-        if (emp != null) report.setEmployeeName(emp.getName());
+    private void enrichReportInfo(List<WorkReport> reports) {
+        if (reports.isEmpty()) return;
 
-        // 工区名称
-        OrgUnit area = orgUnitMapper.selectById(report.getAreaId());
-        if (area != null) report.setAreaName(area.getOrgName());
-
-        // 车间名称
-        OrgUnit workshop = orgUnitMapper.selectById(report.getWorkshopId());
-        if (workshop != null) report.setWorkshopName(workshop.getOrgName());
-
-        // 加载明细
-        List<WorkReportItem> items = itemMapper.selectList(
-                new LambdaQueryWrapper<WorkReportItem>()
-                        .eq(WorkReportItem::getReportId, report.getId())
-                        .orderByAsc(WorkReportItem::getSortOrder));
-        for (WorkReportItem item : items) {
-            WorkItem wi = workItemMapper.selectById(item.getWorkItemId());
-            if (wi != null) {
-                item.setItemName(wi.getItemName());
-                item.setItemPath(wi.getItemPath());
-            }
+        // 1. 批量查所有关联的员工
+        Set<Long> empIds = reports.stream().map(WorkReport::getEmployeeId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> empNameMap = new HashMap<>();
+        if (!empIds.isEmpty()) {
+            employeeMapper.selectBatchIds(empIds).forEach(e -> empNameMap.put(e.getId(), e.getName()));
         }
-        report.setItems(items);
+
+        // 2. 批量查所有工区
+        Set<Long> areaIds = reports.stream().map(WorkReport::getAreaId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> areaNameMap = new HashMap<>();
+        if (!areaIds.isEmpty()) {
+            orgUnitMapper.selectBatchIds(areaIds).forEach(o -> areaNameMap.put(o.getId(), o.getOrgName()));
+        }
+
+        // 3. 批量查所有车间
+        Set<Long> wsIds = reports.stream().map(WorkReport::getWorkshopId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> wsNameMap = new HashMap<>();
+        if (!wsIds.isEmpty()) {
+            orgUnitMapper.selectBatchIds(wsIds).forEach(o -> wsNameMap.put(o.getId(), o.getOrgName()));
+        }
+
+        // 4. 批量查所有明细
+        Set<Long> reportIds = reports.stream().map(WorkReport::getId).collect(Collectors.toSet());
+        Map<Long, List<WorkReportItem>> itemsMap = new HashMap<>();
+        if (!reportIds.isEmpty()) {
+            itemMapper.selectList(new LambdaQueryWrapper<WorkReportItem>().in(WorkReportItem::getReportId, reportIds).orderByAsc(WorkReportItem::getSortOrder))
+                    .forEach(item -> itemsMap.computeIfAbsent(item.getReportId(), k -> new ArrayList<>()).add(item));
+        }
+
+        // 5. 批量查所有用工项目
+        Set<Long> wiIds = itemsMap.values().stream().flatMap(List::stream).map(WorkReportItem::getWorkItemId).collect(Collectors.toSet());
+        Map<Long, WorkItem> wiMap = new HashMap<>();
+        if (!wiIds.isEmpty()) {
+            workItemMapper.selectBatchIds(wiIds).forEach(wi -> wiMap.put(wi.getId(), wi));
+        }
+
+        // 6. 填充每条记录
+        for (WorkReport report : reports) {
+            report.setEmployeeName(empNameMap.getOrDefault(report.getEmployeeId(), null));
+            report.setAreaName(areaNameMap.getOrDefault(report.getAreaId(), null));
+            report.setWorkshopName(wsNameMap.getOrDefault(report.getWorkshopId(), null));
+            List<WorkReportItem> items = itemsMap.getOrDefault(report.getId(), Collections.emptyList());
+            for (WorkReportItem item : items) {
+                WorkItem wi = wiMap.get(item.getWorkItemId());
+                if (wi != null) {
+                    item.setItemName(wi.getItemName());
+                    item.setItemPath(wi.getItemPath());
+                }
+            }
+            report.setItems(items);
+        }
     }
+
+    private void enrichReportInfo(WorkReport report) { enrichReportInfo(List.of(report)); }
 
     /**
      * 获取填报详情（含明细）

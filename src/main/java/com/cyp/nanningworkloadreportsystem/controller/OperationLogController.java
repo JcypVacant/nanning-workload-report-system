@@ -10,6 +10,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -32,6 +34,11 @@ public class OperationLogController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime) {
+        // 未指定时间范围时默认最近90天，防止全表扫描
+        if ((startTime == null || startTime.isEmpty()) && (endTime == null || endTime.isEmpty())) {
+            startTime = LocalDate.now().minusDays(90).atStartOfDay().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            endTime = LocalDate.now().plusDays(1).atStartOfDay().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
         LambdaQueryWrapper<OperationLog> wrapper = new LambdaQueryWrapper<OperationLog>()
                 .eq(moduleName != null, OperationLog::getModuleName, moduleName)
                 .like(keyword != null && !keyword.isEmpty(), OperationLog::getUsername, keyword)
