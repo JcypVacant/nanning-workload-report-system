@@ -271,7 +271,16 @@ public class EmployeeService {
         // 填充关联信息
         for (EmployeeTransferRecord r : records) {
             Employee e = employeeMapper.selectById(r.getEmployeeId());
-            if (e != null) r.setRemark(e.getName()); // 用 remark 临时存姓名
+            if (e != null) r.setRemark(e.getName());
+            // 填充调动前后工区/车间名称
+            if (r.getBeforeAreaId() != null) {
+                OrgUnit ba = orgUnitMapper.selectById(r.getBeforeAreaId());
+                if (ba != null) r.setRemark(r.getRemark() + "|" + ba.getOrgName());
+            }
+            if (r.getAfterAreaId() != null) {
+                OrgUnit aa = orgUnitMapper.selectById(r.getAfterAreaId());
+                if (aa != null) r.setRemark(r.getRemark() + "|" + aa.getOrgName());
+            }
         }
 
         Page<EmployeeTransferRecord> page = new Page<>(pageNum, pageSize);

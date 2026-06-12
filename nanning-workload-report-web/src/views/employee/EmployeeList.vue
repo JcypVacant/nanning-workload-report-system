@@ -235,13 +235,15 @@
       </el-form>
       <el-table :data="transferRecords" border stripe v-loading="loadingRecords">
         <el-table-column label="人员" width="100">
-          <template #default="{ row }">{{ row.remark || row.employeeId }}</template>
+          <template #default="{ row }">{{ (row.remark || '').split('|')[0] || row.employeeId }}</template>
         </el-table-column>
         <el-table-column prop="operateTime" label="申请时间" width="160">
           <template #default="{ row }">{{ row.operateTime?.replace('T', ' ') }}</template>
         </el-table-column>
-        <el-table-column label="调动详情" min-width="200">
-          <template #default="{ row }">工区{{ row.beforeAreaId }} → 工区{{ row.afterAreaId }}</template>
+        <el-table-column label="调动详情" min-width="250">
+          <template #default="{ row }">
+            {{ (row.remark || '').split('|')[1] || '工区'+row.beforeAreaId }} → {{ (row.remark || '').split('|')[2] || '工区'+row.afterAreaId }}
+          </template>
         </el-table-column>
         <el-table-column prop="transferReason" label="原因" width="150" />
         <el-table-column prop="status" label="状态" width="90">
