@@ -59,6 +59,7 @@
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
             <el-button link type="success" size="small" @click="approve(row)">通过</el-button>
             <el-button link type="danger" size="small" @click="showReturn(row)">退回</el-button>
           </template>
@@ -75,6 +76,29 @@
       </div>
       <el-empty v-if="!loading && tableData.length === 0" description="暂无需审核的记录" />
     </el-card>
+
+    <!-- 查看详情对话框 -->
+    <el-dialog title="填报详情" v-model="detailVisible" width="700px">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="人员">{{ detailReport?.employeeName }}</el-descriptions-item>
+        <el-descriptions-item label="日期">{{ detailReport?.workDate }}</el-descriptions-item>
+        <el-descriptions-item label="类别">{{ detailReport?.reportType === 'HOURS' ? '工时' : '工分' }}</el-descriptions-item>
+        <el-descriptions-item label="车间">{{ detailReport?.workshopName }}</el-descriptions-item>
+      </el-descriptions>
+      <el-table :data="detailReport?.items || []" border stripe style="margin-top:12px">
+        <el-table-column label="用工项目" min-width="200">
+          <template #default="{ row }">{{ row.itemPath || row.itemName }}</template>
+        </el-table-column>
+        <el-table-column label="数值" width="120">
+          <template #default="{ row }">
+            <template v-if="detailReport?.reportType === 'HOURS'">{{ row.numberValue || 0 }} 分钟</template>
+            <template v-else>{{ row.pointsValue || 0 }} 工分</template>
+          </template>
+        </el-table-column>
+        <el-table-column prop="remark" label="备注" width="150" />
+      </el-table>
+      <template #footer><el-button @click="detailVisible = false">关闭</el-button></template>
+    </el-dialog>
 
     <!-- 退回原因对话框 -->
     <el-dialog :title="batchReturnMode ? '批量退回原因' : '退回原因'" v-model="returnVisible" width="420px">
@@ -106,6 +130,9 @@ const pageNum = ref(1); const pageSize = ref(10); const total = ref(0)
 const saving = ref(false); const returnVisible = ref(false); const returnComment = ref('')
 const currentReturnId = ref<number | null>(null); const batchReturnMode = ref(false)
 const selectedReports = ref<WorkReport[]>([])
+// 查看详情
+const detailVisible = ref(false)
+const detailReport = ref<WorkReport | null>(null)
 const canBatchApprove = computed(() => selectedReports.value.length > 0 && selectedReports.value.every(r => r.status === '已提交'))
 function statusType(s: string) {
   const m: Record<string, string> = { '已提交': 'warning', '已审核': 'success', '已退回': 'danger' }
@@ -160,6 +187,8 @@ async function handleBatchReturn() {
 async function approve(row: WorkReport) {
   try { await auditApi.approve(row.id); ElMessage.success('审核通过'); loadData() } catch (e: any) { ElMessage.error(e.message || '操作失败') }
 }
+function showDetail(row: WorkReport) { detailReport.value = row; detailVisible.value = true }
+
 function showReturn(row: WorkReport) {
   batchReturnMode.value = false; currentReturnId.value = row.id; returnComment.value = ''; returnVisible.value = true
 }

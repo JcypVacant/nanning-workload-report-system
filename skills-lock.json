@@ -7,6 +7,12 @@
       "skillPath": "skills/agent-browser/SKILL.md",
       "computedHash": "228f87d57035100d9dc6efcfc05aafd4b6e3962adacaa04b8217ab2fadb15dc8"
     },
+    "code-simplifier": {
+      "source": "meleantonio/awesome-econ-ai-stuff",
+      "sourceType": "github",
+      "skillPath": "_skills/engineering/code-simplifier/SKILL.md",
+      "computedHash": "a9a8e8e9c1115855b4bc19088a087fc255799f5ddbca62ff829fc7cae5da7c40"
+    },
     "excel-automation": {
       "source": "claude-office-skills/skills",
       "sourceType": "github",
@@ -24,6 +30,12 @@
       "sourceType": "github",
       "skillPath": "skills/web-design-guidelines/SKILL.md",
       "computedHash": "f3bc47f890f42a44db1007ab390709ec368e4b8c089baee6b0007182236ac474"
+    },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/webapp-testing/SKILL.md",
+      "computedHash": "3f14af7f5690695209c22fbf8c8d133769a86d64892602c09bb13f135e14e857"
     }
   }
 }
