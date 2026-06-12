@@ -174,13 +174,28 @@ public class SysUserService {
      * 分页查询用户列表
      * 手动分页：先 COUNT 获取总数，再用 LIMIT 拼到 SQL 尾部
      */
-    public IPage<SysUser> getPage(Integer pageNum, Integer pageSize, String keyword) {
+    public IPage<SysUser> getPage(Integer pageNum, Integer pageSize, String keyword, String roleCode) {
+        // 如果指定角色，先查匹配的 user ID
+        List<Long> roleUserIds = null;
+        if (roleCode != null && !roleCode.isEmpty()) {
+            roleUserIds = sysUserOrgScopeMapper.selectList(
+                    new LambdaQueryWrapper<SysUserOrgScope>().eq(SysUserOrgScope::getRoleCode, roleCode)
+            ).stream().map(SysUserOrgScope::getUserId).distinct().toList();
+            if (roleUserIds.isEmpty()) {
+                Page<SysUser> empty = new Page<>(pageNum, pageSize);
+                empty.setTotal(0L);
+                empty.setRecords(List.of());
+                return empty;
+            }
+        }
+
         // 构建查询条件（不含 LIMIT）
         LambdaQueryWrapper<SysUser> countWrapper = new LambdaQueryWrapper<SysUser>()
                 .and(keyword != null, w -> w
                     .like(SysUser::getUsername, keyword)
                     .or()
                     .like(SysUser::getRealName, keyword));
+        if (roleUserIds != null) countWrapper.in(SysUser::getId, roleUserIds);
 
         // 1. 查总数
         Long total = sysUserMapper.selectCount(countWrapper);
@@ -193,6 +208,7 @@ public class SysUserService {
                     .like(SysUser::getRealName, keyword))
                 .orderByDesc(SysUser::getCreateTime)
                 .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+        if (roleUserIds != null) dataWrapper.in(SysUser::getId, roleUserIds);
 
         List<SysUser> records = sysUserMapper.selectList(dataWrapper);
 

@@ -29,8 +29,9 @@ public class SysUserController {
     public Result<PageResult<SysUser>> getPage(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
-            @RequestParam(required = false) String keyword) {
-        IPage<SysUser> page = sysUserService.getPage(pageNum, pageSize, keyword);
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String roleCode) {
+        IPage<SysUser> page = sysUserService.getPage(pageNum, pageSize, keyword, roleCode);
         return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
     }
 

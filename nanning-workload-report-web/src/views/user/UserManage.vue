@@ -16,6 +16,13 @@
         <el-form-item label="搜索">
           <el-input v-model="keyword" placeholder="搜索账号或姓名" clearable @keyup.enter="handleSearch" />
         </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="filterRole" placeholder="全部角色" clearable style="width:150px" @change="handleSearch">
+            <el-option label="段级管理员" value="SECTION_ADMIN" />
+            <el-option label="车间管理员" value="WORKSHOP_ADMIN" />
+            <el-option label="工区填报员" value="AREA_REPORTER" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="handleReset">重置</el-button>
@@ -147,6 +154,7 @@ const pageNum = ref(1)
 const pageSize = ref(10)    // 每页10条
 const total = ref(0)
 const keyword = ref('')
+const filterRole = ref('')
 
 // ==================== 对话框状态 ====================
 const dialogVisible = ref(false)
@@ -191,7 +199,8 @@ async function loadData() {
     const res = await userApi.getPage({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
-      keyword: keyword.value
+      keyword: keyword.value,
+      roleCode: filterRole.value || undefined
     })
     tableData.value = res.records
     total.value = res.total
@@ -215,6 +224,7 @@ function handleSearch() {
  */
 function handleReset() {
   keyword.value = ''
+  filterRole.value = ''
   pageNum.value = 1
   loadData()
 }
