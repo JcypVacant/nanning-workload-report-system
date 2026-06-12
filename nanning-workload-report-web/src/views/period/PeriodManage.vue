@@ -52,7 +52,7 @@ function showCreate() { dialogVisible.value = true }
 async function handleCreate() {
   saving.value=true
   try { await periodApi.create({...createForm, auditDeadline: createForm.endDate}); ElMessage.success('创建成功'); dialogVisible.value=false; loadData() }
-  catch(e:any) { ElMessage.error(e.message||'创建失败') }
+  catch { /* 拦截器已显示错误 */ }
   finally { saving.value=false }
 }
 async function changeStatus(row:MonthlyPeriod) {
@@ -61,11 +61,11 @@ async function changeStatus(row:MonthlyPeriod) {
   const ns = next[row.status]
   if(!ns){ElMessage.warning('当前状态无法变更');return}
   try { await periodApi.changeStatus(row.id, ns); ElMessage.success('状态已变更'); loadData() }
-  catch(e:any) { ElMessage.error(e.message||'状态变更失败') }
+  catch { /* 拦截器已显示错误 */ }
 }
 async function handleToggleLock(row:MonthlyPeriod) {
   try { await periodApi.toggleLock(row.id); ElMessage.success('操作成功'); loadData() }
-  catch(e:any) { ElMessage.error(e.message||'操作失败') }
+  catch { /* 拦截器已显示错误 */ }
 }
 </script>
 <style scoped>.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.page-header h2{margin:0;font-size:18px}</style>
