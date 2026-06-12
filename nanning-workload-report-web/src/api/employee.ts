@@ -44,5 +44,15 @@ export const employeeApi = {
   /** 查询人员调动记录 */
   getTransferRecords(employeeId: number): Promise<EmployeeTransferRecord[]> {
     return request.get(`/employees/${employeeId}/transfer-records`)
+  },
+
+  /** 分页查询调动记录 */
+  getTransferRecordsPage(params: Record<string, any>): Promise<PageResult<EmployeeTransferRecord>> {
+    return request.get('/employees/transfer-records/page', { params })
+  },
+
+  /** 审核调动申请 */
+  approveTransfer(recordId: number, approved: boolean, comment?: string): Promise<void> {
+    return request.post(`/employees/transfer/${recordId}/approve`, { approved, comment })
   }
 }

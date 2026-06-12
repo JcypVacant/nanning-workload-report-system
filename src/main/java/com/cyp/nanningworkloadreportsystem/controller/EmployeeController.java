@@ -80,6 +80,29 @@ public class EmployeeController {
         return Result.ok(employeeService.getTransferRecords(id));
     }
 
+    @Operation(summary = "分页查询调动记录")
+    @GetMapping("/transfer-records/page")
+    public Result<PageResult<EmployeeTransferRecord>> getTransferRecordsPage(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String status) {
+        IPage<EmployeeTransferRecord> page = employeeService.getTransferRecordsPage(pageNum, pageSize, status);
+        return Result.ok(PageResult.of(page.getTotal(), pageNum, pageSize, page.getRecords()));
+    }
+
+    @Operation(summary = "审核调动申请（段级管理员）")
+    @PostMapping("/transfer/{recordId}/approve")
+    public Result<Void> approveTransfer(@PathVariable Long recordId, @RequestBody ApproveTransferRequest req) {
+        employeeService.approveTransfer(recordId, req.isApproved(), req.getComment());
+        return Result.ok();
+    }
+
+    @Data
+    public static class ApproveTransferRequest {
+        private boolean approved;
+        private String comment;
+    }
+
     @Data
     public static class TransferRequest {
         private Long employeeId;

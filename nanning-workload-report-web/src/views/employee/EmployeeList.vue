@@ -9,7 +9,10 @@
   <div>
     <div class="page-header">
       <h2>人员管理</h2>
-      <el-button type="primary" @click="showCreate">新增人员</el-button>
+      <div>
+        <el-button type="primary" @click="showCreate">新增人员</el-button>
+        <el-button @click="toggleTransferRecords">{{ showTransferRecords ? '收起记录' : '调动记录' }}</el-button>
+      </div>
     </div>
 
     <el-card>
@@ -206,9 +209,63 @@
       </el-form>
       <template #footer>
         <el-button @click="transferVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleTransfer" :loading="saving">确认调动</el-button>
+        <el-button type="primary" @click="handleTransfer" :loading="saving">{{ userStore.isWorkshopAdmin ? '提交调动申请' : '确认调动' }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- 调动记录列表 -->
+    <el-card style="margin-top:16px" v-if="showTransferRecords">
+      <template #header>
+        <div class="card-header">
+          <span>调动记录</span>
+          <el-button text size="small" @click="showTransferRecords = false">收起</el-button>
+        </div>
+      </template>
+      <el-form :inline="true" class="search-bar">
+        <el-form-item label="状态" v-if="userStore.isSectionAdmin">
+          <el-select v-model="recordStatus" placeholder="全部" clearable style="width:120px" @change="loadTransferRecords">
+            <el-option label="待审核" value="待审核" />
+            <el-option label="已通过" value="已通过" />
+            <el-option label="已退回" value="已退回" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" size="small" @click="loadTransferRecords">查询</el-button>
+        </el-form-item>
+      </el-form>
+      <el-table :data="transferRecords" border stripe v-loading="loadingRecords">
+        <el-table-column label="人员" width="100">
+          <template #default="{ row }">{{ row.remark || row.employeeId }}</template>
+        </el-table-column>
+        <el-table-column prop="operateTime" label="申请时间" width="160">
+          <template #default="{ row }">{{ row.operateTime?.replace('T', ' ') }}</template>
+        </el-table-column>
+        <el-table-column label="调动详情" min-width="200">
+          <template #default="{ row }">工区{{ row.beforeAreaId }} → 工区{{ row.afterAreaId }}</template>
+        </el-table-column>
+        <el-table-column prop="transferReason" label="原因" width="150" />
+        <el-table-column prop="status" label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.status==='待审核'?'warning':row.status==='已通过'?'success':'danger'" size="small">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="160" v-if="userStore.isSectionAdmin && recordStatus === '待审核'">
+          <template #default="{ row }">
+            <template v-if="row.status === '待审核'">
+              <el-button link type="success" size="small" @click="approveTransfer(row, true)">通过</el-button>
+              <el-button link type="danger" size="small" @click="approveTransfer(row, false)">退回</el-button>
+            </template>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="recordPageNum" v-model:page-size="recordPageSize"
+          :page-sizes="[10,20,50]" :total="recordTotal"
+          layout="total,sizes,prev,pager,next" @current-change="loadTransferRecords" @size-change="handleRecordSizeChange"
+        />
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -235,6 +292,15 @@ const areas = ref<OrgUnit[]>([])
 const filterAreas = ref<OrgUnit[]>([])
 const dialogAreas = ref<OrgUnit[]>([])
 const transferAreas = ref<OrgUnit[]>([])
+
+// 调动记录
+const showTransferRecords = ref(false)
+const transferRecords = ref<any[]>([])
+const loadingRecords = ref(false)
+const recordPageNum = ref(1)
+const recordPageSize = ref(10)
+const recordTotal = ref(0)
+const recordStatus = ref(userStore.isSectionAdmin ? '待审核' : '')
 
 // ==================== 表格与分页状态 ====================
 const tableData = ref<Employee[]>([])
@@ -416,7 +482,11 @@ async function handleTransfer() {
       employeeId: transferEmp.value!.id,
       ...transferForm.value
     })
-    ElMessage.success('调动成功')
+    if (userStore.isWorkshopAdmin) {
+      ElMessage.success('调动申请已提交，等待段级管理员审核')
+    } else {
+      ElMessage.success('调动成功')
+    }
     transferVisible.value = false
     loadData()
   } catch (e: any) {
@@ -427,6 +497,33 @@ async function handleTransfer() {
 }
 
 // ==================== 启停 ====================
+
+function toggleTransferRecords() {
+  showTransferRecords.value = !showTransferRecords.value
+  if (showTransferRecords.value) { recordPageNum.value = 1; loadTransferRecords() }
+}
+
+async function loadTransferRecords() {
+  loadingRecords.value = true
+  try {
+    const res = await employeeApi.getTransferRecordsPage({
+      pageNum: recordPageNum.value, pageSize: recordPageSize.value,
+      status: recordStatus.value || undefined
+    })
+    transferRecords.value = res.records
+    recordTotal.value = res.total
+  } finally { loadingRecords.value = false }
+}
+
+function handleRecordSizeChange() { recordPageNum.value = 1; loadTransferRecords() }
+
+async function approveTransfer(row: any, approved: boolean) {
+  try {
+    await employeeApi.approveTransfer(row.id, approved, approved ? '审核通过' : '审核退回')
+    ElMessage.success(approved ? '已通过' : '已退回')
+    loadTransferRecords()
+  } catch (e: any) { ElMessage.error(e.message || '操作失败') }
+}
 
 async function handleToggle(row: Employee) {
   await employeeApi.toggleEnabled(row.id)

@@ -161,11 +161,9 @@ public class EmployeeService {
             if (!UserContext.getOrgId().equals(emp.getWorkshopId())) {
                 throw new RuntimeException("无权调动其他车间的人员");
             }
-            // 只能调到本车间
             if (!UserContext.getOrgId().equals(newWorkshopId)) {
                 throw new RuntimeException("只能调动到本车间内");
             }
-            // areaId=0 表示车间本级，允许
             if (newAreaId != null && newAreaId != 0L) {
                 OrgUnit targetArea = orgUnitMapper.selectById(newAreaId);
                 if (targetArea == null || !UserContext.getOrgId().equals(targetArea.getParentId())) {
@@ -174,10 +172,7 @@ public class EmployeeService {
             }
         }
 
-        // areaId=0 表示车间本级，转为 null
-        if (newAreaId != null && newAreaId == 0L) {
-            newAreaId = null;
-        }
+        if (newAreaId != null && newAreaId == 0L) newAreaId = null;
 
         // 创建调动记录
         EmployeeTransferRecord record = new EmployeeTransferRecord();
@@ -191,17 +186,97 @@ public class EmployeeService {
         record.setTransferReason(reason);
         record.setOperatorId(UserContext.getUserId());
         record.setOperateTime(LocalDateTime.now());
-        transferRecordMapper.insert(record);
 
-        // 更新人员当前归属
-        emp.setWorkshopId(newWorkshopId);
-        emp.setAreaId(newAreaId);
-        if (newTeamName != null) emp.setTeamName(newTeamName);
-        employeeMapper.updateById(emp);
+        if (UserContext.isWorkshopAdmin()) {
+            // 车间管理员提交 → 待段级审核
+            record.setStatus("待审核");
+            transferRecordMapper.insert(record);
+            log.info("人员调动申请: employeeId={}, pending", employeeId);
+            logService.record("人员管理", "TRANSFER_REQUEST", String.valueOf(employeeId),
+                    "调动申请: " + emp.getName());
+        } else {
+            // 段级管理员直接调动
+            record.setStatus("已通过");
+            transferRecordMapper.insert(record);
+            // 立即更新人员归属
+            emp.setWorkshopId(newWorkshopId);
+            emp.setAreaId(newAreaId);
+            if (newTeamName != null) emp.setTeamName(newTeamName);
+            employeeMapper.updateById(emp);
+            log.info("人员调动: employeeId={}, {}->{}", employeeId, record.getBeforeAreaId(), newAreaId);
+            logService.record("人员管理", "TRANSFER", String.valueOf(employeeId),
+                    "人员调动: " + emp.getName());
+        }
+    }
 
-        log.info("人员调动: employeeId={}, {}->{}", employeeId, record.getBeforeAreaId(), newAreaId);
-        logService.record("人员管理", "TRANSFER", String.valueOf(employeeId),
-                "人员调动: " + emp.getName() + " -> 工区" + newAreaId);
+    /** 段级管理员审核调动申请 */
+    @Transactional
+    public void approveTransfer(Long recordId, boolean approved, String comment) {
+        EmployeeTransferRecord record = transferRecordMapper.selectById(recordId);
+        if (record == null) throw new RuntimeException("调动记录不存在");
+        if (!"待审核".equals(record.getStatus())) throw new RuntimeException("该调动已处理");
+
+        record.setStatus(approved ? "已通过" : "已退回");
+        record.setApprovedBy(UserContext.getUserId());
+        record.setApproveTime(LocalDateTime.now());
+        record.setApproveComment(comment);
+        transferRecordMapper.updateById(record);
+
+        if (approved) {
+            Employee emp = employeeMapper.selectById(record.getEmployeeId());
+            if (emp != null) {
+                emp.setWorkshopId(record.getAfterWorkshopId());
+                emp.setAreaId(record.getAfterAreaId());
+                if (record.getAfterTeamName() != null) emp.setTeamName(record.getAfterTeamName());
+                employeeMapper.updateById(emp);
+            }
+        }
+
+        log.info("调动审核: recordId={}, approved={}", recordId, approved);
+        logService.record("人员管理", approved ? "TRANSFER_APPROVE" : "TRANSFER_REJECT",
+                String.valueOf(recordId), "调动审核: " + (approved ? "通过" : "退回"));
+    }
+
+    /** 查询调动记录（车间管理员看本车间，段级看全部） */
+    public IPage<EmployeeTransferRecord> getTransferRecordsPage(Integer pageNum, Integer pageSize, String status) {
+        LambdaQueryWrapper<EmployeeTransferRecord> countWrapper = new LambdaQueryWrapper<EmployeeTransferRecord>()
+                .eq(status != null && !status.isEmpty(), EmployeeTransferRecord::getStatus, status);
+
+        if (UserContext.isWorkshopAdmin()) {
+            // 只查本车间人员的调动记录
+            List<Long> empIds = employeeMapper.selectList(
+                    new LambdaQueryWrapper<Employee>().eq(Employee::getWorkshopId, UserContext.getOrgId())
+            ).stream().map(Employee::getId).toList();
+            if (empIds.isEmpty()) {
+                Page<EmployeeTransferRecord> empty = new Page<>(pageNum, pageSize);
+                empty.setTotal(0L); empty.setRecords(List.of()); return empty;
+            }
+            countWrapper.in(EmployeeTransferRecord::getEmployeeId, empIds);
+        }
+
+        Long total = transferRecordMapper.selectCount(countWrapper);
+
+        LambdaQueryWrapper<EmployeeTransferRecord> dataWrapper = new LambdaQueryWrapper<EmployeeTransferRecord>()
+                .eq(status != null && !status.isEmpty(), EmployeeTransferRecord::getStatus, status);
+        if (UserContext.isWorkshopAdmin()) {
+            List<Long> empIds = employeeMapper.selectList(
+                    new LambdaQueryWrapper<Employee>().eq(Employee::getWorkshopId, UserContext.getOrgId())
+            ).stream().map(Employee::getId).toList();
+            if (!empIds.isEmpty()) dataWrapper.in(EmployeeTransferRecord::getEmployeeId, empIds);
+        }
+        dataWrapper.orderByDesc(EmployeeTransferRecord::getOperateTime)
+                .last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+        List<EmployeeTransferRecord> records = transferRecordMapper.selectList(dataWrapper);
+
+        // 填充关联信息
+        for (EmployeeTransferRecord r : records) {
+            Employee e = employeeMapper.selectById(r.getEmployeeId());
+            if (e != null) r.setRemark(e.getName()); // 用 remark 临时存姓名
+        }
+
+        Page<EmployeeTransferRecord> page = new Page<>(pageNum, pageSize);
+        page.setTotal(total); page.setRecords(records);
+        return page;
     }
 
     /** 查询调动记录 */

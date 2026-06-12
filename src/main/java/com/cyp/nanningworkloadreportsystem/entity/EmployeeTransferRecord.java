@@ -52,4 +52,16 @@ public class EmployeeTransferRecord {
 
     /** 备注 */
     private String remark;
+
+    /** 审核状态：待审核/已通过/已退回 */
+    private String status;
+
+    /** 审批人ID */
+    private Long approvedBy;
+
+    /** 审批时间 */
+    private LocalDateTime approveTime;
+
+    /** 审批意见 */
+    private String approveComment;
 }
